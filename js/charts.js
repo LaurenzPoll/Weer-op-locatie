@@ -17,7 +17,9 @@ function nettePunten(min, max, aantal = 5) {
   const grofStap = span / aantal;
   const grootte = Math.pow(10, Math.floor(Math.log10(grofStap)));
   const genormaliseerd = grofStap / grootte;
-  const stap = (genormaliseerd <= 1 ? 1 : genormaliseerd <= 2 ? 2 : genormaliseerd <= 5 ? 5 : 10) * grootte;
+  // Iets soepeler dan de klassieke 1/2/5-drempels: een spanwijdte die er net
+  // boven uitkomt kreeg anders een dubbel zo grove stap, met een as vol lucht.
+  const stap = (genormaliseerd <= 1.2 ? 1 : genormaliseerd <= 2.5 ? 2 : genormaliseerd <= 6 ? 5 : 10) * grootte;
   const start = Math.floor(min / stap) * stap;
   const eind = Math.ceil(max / stap) * stap;
   const punten = [];
@@ -44,10 +46,10 @@ function verdeelInRijen(punten, x, minAfstand) {
 
 function vorm(soort, x, y, kleurVar) {
   const gedeeld = `fill="var(${kleurVar})" stroke="var(--surface-1)" stroke-width="2"`;
-  if (soort === 'vierkant') return `<rect x="${(x - 5).toFixed(1)}" y="${(y - 5).toFixed(1)}" width="10" height="10" rx="1.5" ${gedeeld}/>`;
+  if (soort === 'vierkant') return `<rect x="${(x - 6.2).toFixed(1)}" y="${(y - 6.2).toFixed(1)}" width="12.4" height="12.4" rx="1.8" ${gedeeld}/>`;
   if (soort === 'ruit')
-    return `<rect x="${(x - 4.8).toFixed(1)}" y="${(y - 4.8).toFixed(1)}" width="9.6" height="9.6" rx="1" ${gedeeld} transform="rotate(45 ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
-  return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5.5" ${gedeeld}/>`;
+    return `<rect x="${(x - 5.9).toFixed(1)}" y="${(y - 5.9).toFixed(1)}" width="11.8" height="11.8" rx="1.2" ${gedeeld} transform="rotate(45 ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
+  return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.8" ${gedeeld}/>`;
 }
 
 /**
@@ -55,7 +57,7 @@ function vorm(soort, x, y, kleurVar) {
  * de middelste helft van de modellen als grijze band. Dit is de grafiek die de
  * vraag "hoe eens zijn ze het" in één blik beantwoordt.
  */
-export function puntenWolk({ paren, modellen, verdeling, formatter, label, breedte = 760, minimumNul = false }) {
+export function puntenWolk({ paren, modellen, verdeling, formatter, label, breedte = 560, minimumNul = false }) {
   if (!verdeling || !paren.length) {
     return `<p class="leeg">Nog geen model met een waarde voor deze dag.</p>`;
   }
@@ -68,13 +70,17 @@ export function puntenWolk({ paren, modellen, verdeling, formatter, label, breed
 
   // Bij grootheden die niet negatief kunnen (neerslag) begint de as bij nul:
   // een as met "−5 mm regen" erop is onzin, ook al past het rekenkundig.
-  const marge = (verdeling.bereik || 1) * 0.12;
+  // Weinig lucht om de uitersten: de waarden mogen dicht op elkaar staan, zodat
+  // het cluster als één blok leest in plaats van uitgerekt over een brede as.
+  const marge = (verdeling.bereik || 1) * 0.05;
   const ondergrens = minimumNul ? Math.max(0, verdeling.min - marge) : verdeling.min - marge;
-  const { punten: ticks, start, eind } = nettePunten(ondergrens, verdeling.max + marge, 5);
+  // Meer ijkpunten betekent een fijnere stap, en dus een as die strakker om de
+  // waarden heen sluit in plaats van af te ronden op veelvouden van twee.
+  const { punten: ticks, start, eind } = nettePunten(ondergrens, verdeling.max + marge, 6);
   const x = (v) => padLinks + ((v - start) / (eind - start || 1)) * plotBreedte;
 
-  const rijen = verdeelInRijen(paren, x, 15);
-  const rijHoogte = 17;
+  const rijen = verdeelInRijen(paren, x, 19);
+  const rijHoogte = 24;
   const plotHoogte = Math.max(rijen.length, 1) * rijHoogte;
   const hoogte = padBoven + plotHoogte + asHoogte;
   const asY = padBoven + plotHoogte + 6;
@@ -257,15 +263,44 @@ export function trendLijn(punten, { breedte = 132, hoogte = 34 } = {}) {
 </svg>`;
 }
 
+/* Weericoontjes voor de zonweergave. Klein getekend en met vlakken in plaats van
+   dunne lijnen, zodat ze op 18 px nog leesbaar zijn. */
+const ICONEN = {
+  zon: `<svg class="ic ic-zon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.6"/>
+      <g class="stralen">
+        <path d="M12 2.4v2.6M12 19v2.6M2.4 12h2.6M19 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9"/>
+      </g>
+    </svg>`,
+  halfzon: `<svg class="ic ic-halfzon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="8.6" cy="7.6" r="3.3"/>
+      <g class="stralen">
+        <path d="M8.6 1.6v1.8M2.6 7.6h1.8M4.1 3.1l1.3 1.3M13.1 3.1l-1.3 1.3"/>
+      </g>
+      <g class="wolk">
+        <circle cx="12.4" cy="15.4" r="3.2"/>
+        <circle cx="16.4" cy="14.6" r="3.9"/>
+        <rect x="9.3" y="16" width="10.8" height="4.3" rx="2.15"/>
+      </g>
+    </svg>`,
+  wolk: `<svg class="ic ic-wolk" viewBox="0 0 24 24" aria-hidden="true">
+      <g class="wolk">
+        <circle cx="9.4" cy="12.6" r="3.7"/>
+        <circle cx="14.4" cy="11.6" r="4.5"/>
+        <rect x="5.7" y="13.4" width="12.9" height="4.9" rx="2.45"/>
+      </g>
+    </svg>`
+};
+
 /**
  * Rooster van modellen tegen uren: elke rij een model, elke kolom een uur uit
- * het dagvenster, en de kleurintensiteit de waarde. Dit is de vorm die de vraag
- * "blijft het tussen elf en acht droog" in één blik beantwoordt — een lijn per
- * model zou bij twintig modellen een kluwen worden.
+ * het dagvenster. Dit is de vorm die de vraag "blijft het tussen elf en acht
+ * droog" in één blik beantwoordt — een lijn per model zou bij twintig modellen
+ * een kluwen worden.
  *
- * Eén kleurverloop van licht naar donker (dus geen regenboog), en de betekenis
- * van de kleur staat in de legenda eronder. Nul is geen kleur maar leegte: droog
- * moet als niets lezen, niet als "de lichtste blauwtint".
+ * De meting bepaalt hoe een cel eruitziet: een kleurvlak uit één verloop van
+ * licht naar donker, of een weericoontje. Nul is nooit de lichtste kleur maar
+ * leegte, want droog moet als niets lezen.
  */
 export function uurRooster({ rijen, uren, meting }) {
   if (!rijen.length) {
@@ -273,24 +308,19 @@ export function uurRooster({ rijen, uren, meting }) {
       vult dit rooster zich.</p>`;
   }
 
-  const [lo, hi] = meting.domein;
-  const stappen = 7;
-
   const cel = (waarde, model, uur) => {
     const tijd = `${String(uur).padStart(2, '0')}:00`;
     if (waarde === null || waarde === undefined) {
       return `<td class="cel-geen" title="${esc(`${model} · ${tijd} — geen waarde`)}">
         <span class="enkel-lezer">geen waarde</span></td>`;
     }
-    const tekst = `${model} · ${tijd} — ${meting.formatter(waarde)}`;
-    if (meting.nulIsLeeg && waarde < meting.drempel) {
-      return `<td class="cel-nul" data-tip="${esc(tekst)}" title="${esc(tekst)}">
-        <span class="enkel-lezer">${esc(meting.formatter(waarde))}</span></td>`;
-    }
-    const deel = hi > lo ? (waarde - lo) / (hi - lo) : 1;
-    const stap = Math.min(stappen, Math.max(1, Math.round(1 + deel * (stappen - 1))));
-    return `<td data-stap="${stap}" data-tip="${esc(tekst)}" title="${esc(tekst)}">
-      <span class="enkel-lezer">${esc(meting.formatter(waarde))}</span></td>`;
+    const c = meting.cel(waarde);
+    const tekst = `${model} · ${tijd} — ${c.omschrijving}`;
+    const gedeeld = `data-tip="${esc(tekst)}" title="${esc(tekst)}"`;
+    const verborgen = `<span class="enkel-lezer">${esc(c.omschrijving)}</span>`;
+    if (c.soort === 'leeg') return `<td class="cel-nul" ${gedeeld}>${verborgen}</td>`;
+    if (c.soort === 'icoon') return `<td class="cel-icoon" ${gedeeld}>${ICONEN[c.icoon]}${verborgen}</td>`;
+    return `<td data-stap="${c.stap}" ${gedeeld}>${verborgen}</td>`;
   };
 
   const koppen = uren.map((u) => `<th scope="col">${String(u).padStart(2, '0')}</th>`).join('');
@@ -317,19 +347,27 @@ export function uurRooster({ rijen, uren, meting }) {
       </tr></tfoot>`
     : '';
 
-  const legenda = `
-    <div class="rooster-legenda">
-      <span class="legenda-uit">${esc(meting.legendaLaag)}</span>
-      <span class="legenda-balk">${Array.from({ length: stappen }, (_, i) => `<span data-stap="${i + 1}"></span>`).join(
-        ''
-      )}</span>
-      <span class="legenda-uit">${esc(meting.legendaHoog)}</span>
-      ${meting.nulIsLeeg ? `<span class="legenda-item"><span class="legenda-nul"></span> ${esc(meting.nulLabel)}</span>` : ''}
-    </div>`;
+  const l = meting.legenda;
+  const legenda =
+    l.soort === 'iconen'
+      ? `<div class="rooster-legenda">
+          ${l.items
+            .map((i) => `<span class="legenda-item">${ICONEN[i.icoon]} ${esc(i.label)}</span>`)
+            .join('')}
+        </div>`
+      : `<div class="rooster-legenda">
+          <span class="legenda-uit">${esc(l.laag)}</span>
+          <span class="legenda-balk" data-ramp="${esc(meting.ramp ?? 'blauw')}">${Array.from(
+            { length: 7 },
+            (_, i) => `<span data-stap="${i + 1}"></span>`
+          ).join('')}</span>
+          <span class="legenda-uit">${esc(l.hoog)}</span>
+          ${l.nulLabel ? `<span class="legenda-item"><span class="legenda-nul"></span> ${esc(l.nulLabel)}</span>` : ''}
+        </div>`;
 
   return `
   <div class="rooster-omhulsel">
-    <table class="rooster">
+    <table class="rooster" data-ramp="${esc(meting.ramp ?? 'blauw')}">
       <caption class="enkel-lezer">${esc(meting.tabelUitleg)}</caption>
       <thead>
         <tr>
@@ -342,5 +380,6 @@ export function uurRooster({ rijen, uren, meting }) {
       ${voet}
     </table>
   </div>
-  ${legenda}`;
+  ${legenda}
+  ${l.uitleg ? `<p class="rooster-uitleg">${l.uitleg}</p>` : ''}`;
 }

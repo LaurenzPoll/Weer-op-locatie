@@ -123,11 +123,25 @@ function consensusHtml(sam) {
 
 // ------------------------------------------------------------------ spreiding
 
+// Eén zin per groep, zodat de legenda niet alleen een naam maar ook een
+// betekenis geeft — "referentie" zegt op zichzelf niets.
+const GROEP_UITLEG = {
+  globaal: 'Globale modellen rekenen de hele aardbol door en kijken daardoor het verst vooruit.',
+  regionaal:
+    'Regionale modellen zoomen in op een klein gebied en rekenen buien echt uit, maar zien maar een paar dagen vooruit.',
+  referentie:
+    'Referentie is geen eigen model, maar de keuze die Open-Meteo zelf maakt: per uur het fijnste model dat hier geldig is — ongeveer wat een gewone weerapp je toont.'
+};
+
 function legendaHtml(resultaten) {
   const aanwezig = new Set(
     resultaten.filter((r) => r.status === 'ok').map((r) => modellenPerId[r.id].groep)
   );
-  return Object.entries(GROEPEN)
+  const uitleg = [...aanwezig]
+    .map((sleutel) => GROEP_UITLEG[sleutel])
+    .filter(Boolean)
+    .join(' ');
+  const merken = Object.entries(GROEPEN)
     .filter(([sleutel]) => aanwezig.has(sleutel))
     .map(([, g]) => {
       const vormSvg =
@@ -141,6 +155,7 @@ function legendaHtml(resultaten) {
         ${esc(g.titel)}</span>`;
     })
     .join('');
+  return { merken, uitleg };
 }
 
 function wolkenHtml(sam) {
@@ -413,24 +428,61 @@ const som = (lijst) => lijst.reduce((a, b) => a + b, 0);
 // De drie manieren om naar het venster te kijken. Per meting: waar de waarde
 // vandaan komt, hoe de schaal loopt, wat de regel eronder samenvat, en welk
 // getal rechts per model staat.
+// Vaste neerslagschaal in millimeter per uur. Bewust absoluut en niet
+// meeschalend met de data: zo betekent een kleur altijd hetzelfde, en valt er
+// iets zinnigs over te zeggen in de legenda.
+const REGEN_SCHAAL = [
+  { tot: 0.1, stap: 0, naam: 'droog' },
+  { tot: 0.3, stap: 1, naam: 'een spat' },
+  { tot: 1, stap: 2, naam: 'lichte regen' },
+  { tot: 2, stap: 3, naam: 'regen' },
+  { tot: 4, stap: 4, naam: 'stevige regen' },
+  { tot: 8, stap: 5, naam: 'zware regen' },
+  { tot: 15, stap: 6, naam: 'zeer zware regen' },
+  { tot: Infinity, stap: 7, naam: 'stortbui' }
+];
+
+// Zonneschijn per uur vertaald naar drie weerbeelden.
+const ZON_SCHAAL = [
+  { vanaf: 40, icoon: 'zon', naam: 'zonnig' },
+  { vanaf: 10, icoon: 'halfzon', naam: 'halfbewolkt' },
+  { vanaf: -1, icoon: 'wolk', naam: 'bewolkt' }
+];
+
+// De drie manieren om naar het venster te kijken.
 const METINGEN = {
   regen: {
     label: 'Regen',
     sleutel: 'neerslag',
+    ramp: 'blauw',
     formatter: (v) => f.mm(v),
-    nulIsLeeg: true,
-    drempel: 0.05,
-    nulLabel: 'droog',
-    legendaLaag: 'een spat',
-    legendaHoog: 'flinke regen',
-    samenvattingLabel: `totaal`,
+    cel: (v) => {
+      const s = REGEN_SCHAAL.find((x) => v < x.tot);
+      return {
+        soort: s.stap === 0 ? 'leeg' : 'kleur',
+        stap: s.stap,
+        omschrijving: `${f.mm(v)} — ${s.naam}`
+      };
+    },
+    samenvattingLabel: 'totaal',
     samenvattingFormatter: (v) => f.mm(v),
     rijSamenvatting: (waarden) => som(waarden),
-    domein: (alle) => [0, Math.max(0.5, ...alle)],
     voetLabel: 'modellen met regen',
-    voetWaarde: (perUur) => perUur.filter((v) => v >= 0.05).length,
+    voetWaarde: (perUur) => perUur.filter((v) => v >= 0.1).length,
     voetFormatter: (v) => (v === null ? '' : String(v)),
     tabelUitleg: `Neerslag per uur per model tussen ${venTekst}. Elke cel bevat de waarde in millimeter.`,
+    legenda: {
+      soort: 'balk',
+      laag: 'een spat',
+      hoog: 'stortbui',
+      nulLabel: 'droog',
+      uitleg:
+        `De schaal ligt vast, dus dezelfde kleur betekent altijd hetzelfde. Een <strong>leeg vakje is droog</strong>:
+         minder dan 0,1 mm in dat uur. <strong>Een spat</strong> is 0,1 tot 0,3 mm — dat zie je op de stoep en verder
+         merk je er niets van. Daarna lichte regen (tot 1 mm), regen (tot 2 mm), stevige regen (tot 4 mm),
+         <strong>zware regen</strong> (4 tot 8 mm: binnen tien minuten doorweekt zonder jas) en een stortbui bij meer
+         dan 15 mm in één uur.`
+    },
     kop: (rijen) => {
       const totalen = rijen.map((r) => r.samenvatting);
       const nat = totalen.filter((v) => v >= 0.5).length;
@@ -439,12 +491,7 @@ const METINGEN = {
         return `Alle ${rijen.length} modellen houden het tussen ${venTekst} vrijwel droog.`;
       }
       const med = mediaan(totalen);
-      // Een mediaan van 0,0 mm naast "4 van de 10 geven regen" leest verwarrend;
-      // dan is de mededeling juist dat de meerderheid droog blijft.
-      const medTekst =
-        med < 0.5
-          ? `de meerderheid blijft droog`
-          : `de mediaan komt op ${esc(f.mm(med))}`;
+      const medTekst = med < 0.5 ? `de meerderheid blijft droog` : `de mediaan komt op ${esc(f.mm(med))}`;
       return `<strong>${nat} van de ${rijen.length} modellen</strong> ${nat === 1 ? 'geeft' : 'geven'} meer dan
         0,5 mm tussen ${venTekst} — ${medTekst}, en het natste model geeft ${esc(f.mm(natste.samenvatting))}
         (${esc(natste.naam)}).`;
@@ -454,19 +501,26 @@ const METINGEN = {
     label: 'Zon',
     sleutel: 'zon',
     formatter: (v) => `${Math.round(v)} min`,
-    nulIsLeeg: true,
-    drempel: 1,
-    nulLabel: 'geen zon',
-    legendaLaag: 'nauwelijks',
-    legendaHoog: 'vol uur zon',
+    cel: (v) => {
+      const s = ZON_SCHAAL.find((x) => v >= x.vanaf);
+      return { soort: 'icoon', icoon: s.icoon, omschrijving: `${Math.round(v)} min zon — ${s.naam}` };
+    },
     samenvattingLabel: 'totaal',
     samenvattingFormatter: (v) => f.uren(v / 60),
     rijSamenvatting: (waarden) => som(waarden),
-    domein: () => [0, 60],
     voetLabel: 'mediaan (minuten)',
     voetWaarde: (perUur) => (perUur.length ? mediaan(perUur) : null),
     voetFormatter: (v) => (v === null ? '' : `${Math.round(v)}`),
     tabelUitleg: `Zonneschijn in minuten per uur per model tussen ${venTekst}.`,
+    legenda: {
+      soort: 'iconen',
+      items: [
+        { icoon: 'zon', label: 'zonnig — 40 minuten of meer zon in dat uur' },
+        { icoon: 'halfzon', label: 'halfbewolkt — 10 tot 40 minuten' },
+        { icoon: 'wolk', label: 'bewolkt — minder dan 10 minuten' }
+      ],
+      uitleg: `Een uur duurt 60 minuten, dus "40 minuten zon" betekent dat de zon twee derde van dat uur vrij stond.`
+    },
     kop: (rijen) => {
       const totalen = rijen.map((r) => r.samenvatting / 60);
       const meest = rijen.reduce((a, b) => (a.samenvatting >= b.samenvatting ? a : b));
@@ -478,12 +532,19 @@ const METINGEN = {
   temp: {
     label: 'Temperatuur',
     sleutel: 'temp',
+    ramp: 'geel',
     formatter: (v) => f.temp(v),
-    nulIsLeeg: false,
-    drempel: null,
-    nulLabel: '',
-    legendaLaag: 'koeler',
-    legendaHoog: 'warmer',
+    // Temperatuur heeft geen vaste schaal: het verloop loopt van de koelste tot
+    // de warmste waarde die er die dag in het venster staat.
+    maakCel: (domein) => (v) => {
+      const [lo, hi] = domein;
+      const deel = hi > lo ? (v - lo) / (hi - lo) : 1;
+      return {
+        soort: 'kleur',
+        stap: Math.min(7, Math.max(1, Math.round(1 + deel * 6))),
+        omschrijving: f.temp(v)
+      };
+    },
     samenvattingLabel: 'hoogste',
     samenvattingFormatter: (v) => f.temp(v),
     rijSamenvatting: (waarden) => Math.max(...waarden),
@@ -492,6 +553,13 @@ const METINGEN = {
     voetWaarde: (perUur) => (perUur.length ? mediaan(perUur) : null),
     voetFormatter: (v) => (v === null ? '' : f.graden(v)),
     tabelUitleg: `Temperatuur per uur per model tussen ${venTekst}, in graden Celsius.`,
+    legenda: {
+      soort: 'balk',
+      laag: 'koeler',
+      hoog: 'warmer',
+      uitleg: `Het verloop is niet vast maar past zich aan deze dag aan: het lichtste geel is de koelste waarde die
+        een model in dit venster geeft, het donkerste de warmste.`
+    },
     kop: (rijen) => {
       const toppen = rijen.map((r) => r.samenvatting);
       return `Mediane hoogste temperatuur tussen ${venTekst}: <strong>${esc(f.temp(mediaan(toppen)))}</strong> —
@@ -547,9 +615,16 @@ function bouwRooster(resultaten, metingSleutel) {
   if (!rijen.length) return { rijen, meting: null, overgeslagen };
 
   const alle = rijen.flatMap((r) => Object.values(r.waarden).filter((v) => v !== null));
+  const domein = meting.domein ? meting.domein(alle) : null;
   const uitgebreid = {
     ...meting,
-    domein: meting.domein(alle),
+    // Metingen met een vaste schaal brengen hun eigen cel-functie mee; die met
+    // een meeschalend verloop krijgen hem hier, als het domein bekend is.
+    cel: meting.cel ?? meting.maakCel(domein),
+    legenda:
+      meting.ramp === 'geel' && domein
+        ? { ...meting.legenda, laag: `koeler — ${f.temp(domein[0])}`, hoog: `warmer — ${f.temp(domein[1])}` }
+        : meting.legenda,
     voet: {
       label: meting.voetLabel,
       waarden: Object.fromEntries(VENSTER_UREN.map((u) => [u, meting.voetWaarde(perUur[u])])),
@@ -593,7 +668,9 @@ function render(resultaten, meta) {
   const sam = samenvatting(resultaten);
 
   el('consensus-inhoud').innerHTML = consensusHtml(sam);
-  el('legenda').innerHTML = legendaHtml(resultaten);
+  const legenda = legendaHtml(resultaten);
+  el('legenda').innerHTML = legenda.merken;
+  el('legenda-uitleg').textContent = legenda.uitleg;
   laatsteResultaten = resultaten;
   renderRooster(resultaten);
   el('wolken').innerHTML = wolkenHtml(sam);

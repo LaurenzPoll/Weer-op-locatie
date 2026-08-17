@@ -491,35 +491,85 @@ svg.trend {
    van de app. In donkere modus loopt hetzelfde verloop om: de laagste waarde
    moet naar de achtergrond wegvallen, niet oplichten. */
 :root {
-  --ramp-1: #b7d3f6;
-  --ramp-2: #86b6ef;
-  --ramp-3: #5598e7;
-  --ramp-4: #2a78d6;
-  --ramp-5: #1c5cab;
-  --ramp-6: #104281;
+  /* Regen: licht blauw is een spat, donker blauw is veel. In beide thema's
+     dezelfde richting, zodat de kleur altijd hetzelfde betekent. */
+  --ramp-1: #cde2fb;
+  --ramp-2: #9ec5f4;
+  --ramp-3: #6da7ec;
+  --ramp-4: #3987e5;
+  --ramp-5: #2a78d6;
+  --ramp-6: #1c5cab;
   --ramp-7: #0d366b;
+
+  /* Temperatuur: van bleek naar diep amber, koeler naar warmer. */
+  --geel-1: #fdf0c8;
+  --geel-2: #fbe19a;
+  --geel-3: #f7cd66;
+  --geel-4: #f0b52f;
+  --geel-5: #dc9c00;
+  --geel-6: #b87f00;
+  --geel-7: #8f6200;
+
+  --zon: #a06a00;
+  --wolk: #898781;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme='light'])) {
-    --ramp-1: #0d366b;
-    --ramp-2: #184f95;
-    --ramp-3: #256abf;
-    --ramp-4: #2a78d6;
-    --ramp-5: #5598e7;
-    --ramp-6: #86b6ef;
-    --ramp-7: #b7d3f6;
+    /* Zelfde richting als in de lichte modus; de donkerste stap is iets
+       lichter gekozen zodat "veel regen" niet wegvalt in de achtergrond. */
+    --ramp-1: #cde2fb;
+    --ramp-2: #9ec5f4;
+    --ramp-3: #6da7ec;
+    --ramp-4: #3987e5;
+    --ramp-5: #2a78d6;
+    --ramp-6: #256abf;
+    --ramp-7: #1c5cab;
+
+    --geel-1: #f9e7b4;
+    --geel-2: #f7cd66;
+    --geel-3: #f0b52f;
+    --geel-4: #dc9c00;
+    --geel-5: #c68a00;
+    --geel-6: #a87400;
+    --geel-7: #8f6200;
+
+    --zon: #eda100;
+    --wolk: #898781;
   }
 }
 
 :root[data-theme='dark'] {
-  --ramp-1: #0d366b;
-  --ramp-2: #184f95;
-  --ramp-3: #256abf;
-  --ramp-4: #2a78d6;
-  --ramp-5: #5598e7;
-  --ramp-6: #86b6ef;
-  --ramp-7: #b7d3f6;
+  --ramp-1: #cde2fb;
+  --ramp-2: #9ec5f4;
+  --ramp-3: #6da7ec;
+  --ramp-4: #3987e5;
+  --ramp-5: #2a78d6;
+  --ramp-6: #256abf;
+  --ramp-7: #1c5cab;
+
+  --geel-1: #f9e7b4;
+  --geel-2: #f7cd66;
+  --geel-3: #f0b52f;
+  --geel-4: #dc9c00;
+  --geel-5: #c68a00;
+  --geel-6: #a87400;
+  --geel-7: #8f6200;
+
+  --zon: #eda100;
+  --wolk: #898781;
+}
+
+/* Een meting met een geel verloop hoeft alleen de rollen om te zetten; alle
+   regels hieronder blijven tegen --ramp-N praten. */
+[data-ramp='geel'] {
+  --ramp-1: var(--geel-1);
+  --ramp-2: var(--geel-2);
+  --ramp-3: var(--geel-3);
+  --ramp-4: var(--geel-4);
+  --ramp-5: var(--geel-5);
+  --ramp-6: var(--geel-6);
+  --ramp-7: var(--geel-7);
 }
 
 .enkel-lezer {
@@ -1091,6 +1141,56 @@ svg.trend {
   .tegel {
     border: 1px solid CanvasText;
   }
+}
+
+.rooster tbody td.cel-icoon {
+  background: var(--wash);
+  text-align: center;
+}
+.ic {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: 0 auto;
+  fill: currentColor;
+}
+.ic-zon,
+.ic-halfzon {
+  color: var(--zon);
+}
+.ic-wolk {
+  color: var(--wolk);
+}
+.ic .stralen path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.ic .wolk {
+  fill: var(--wolk);
+}
+.rooster-legenda .ic {
+  display: inline-block;
+  vertical-align: -4px;
+  margin: 0 0.15rem 0 0;
+}
+
+.rooster-uitleg {
+  margin: 0.55rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  max-width: 68ch;
+}
+.rooster-uitleg strong {
+  color: var(--text-1);
+}
+
+.legenda-uitleg {
+  margin: 0.1rem 0 0.8rem;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  max-width: 68ch;
 }
 
 .rooster-noot {
