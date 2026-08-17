@@ -21,6 +21,7 @@ Een gewone weerapp geeft je één getal, en verzwijgt hoe zeker dat getal is. Bi
 | Oordeel bovenaan | Zijn de modellen het eens, verdeeld of oneens — met de reden erbij |
 | Mediaan en bandbreedte | Het middelste antwoord, plus hoe ver de uitersten uit elkaar liggen |
 | Puntenwolk | Elk model één stip op één as: cluster of chaos in één blik |
+| Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? |
 | Kaart per model | Waarden, uurverloop, en waarom dit model in de lijst hoort |
 | Trend | Schoof de verwachting de laatste dagen op? (lokaal bijgehouden) |
 | Tabel | Alle waarden naast elkaar, ook voor schermlezers |
@@ -32,8 +33,9 @@ Elk model krijgt een statuschip, zodat een ontbrekende waarde altijd verklaard i
 Alles wat je normaal wilt wijzigen staat in [`js/config.js`](js/config.js):
 
 ```js
-export const TARGET_DATE = '2026-08-28';   // de dag waar de app over gaat
+export const TARGET_DATE = '2026-08-28';       // de dag waar de app over gaat
 export const LOCATION = { naam: 'Meerssen', latitude: 50.8917, longitude: 5.75, … };
+export const VENSTER = { van: 11, tot: 20 };   // het dagvenster van het uurrooster
 ```
 
 Eén regel aanpassen, opslaan, pushen. Meer is het niet.
@@ -65,6 +67,8 @@ Open-Meteo voegt modellen toe en hernoemt ze af en toe. Dit script houdt de cata
 ```bash
 node scripts/check-models.mjs
 ```
+
+Het script rapporteert ook per model hoeveel uren in het dagvenster gevuld zijn voor neerslag, zon, temperatuur en bewolking — daarmee is vastgesteld dat alle modellen zonneschijn per uur leveren behalve NOAA AI-GFS. Modellen die de gekozen grootheid niet per uur geven, worden onder het rooster benoemd in plaats van stil weggelaten.
 
 Dezelfde controle loopt als GitHub Action — handmatig te starten via *Actions → Modelcontrole → Run workflow*, en verder elke maandagochtend automatisch.
 
