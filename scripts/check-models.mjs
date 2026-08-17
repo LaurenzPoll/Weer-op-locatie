@@ -45,24 +45,37 @@ async function controleer(m) {
     }
   }
 
+  // Open-Meteo geeft altijd het volledige aantal opgevraagde dagen terug en vult
+  // aan met null voorbij de horizon van het model. De lengte van de tijdas zegt
+  // dus niets over het bereik; we tellen de dagen die echt waarden hebben.
   const dagen = json?.daily?.time ?? [];
   const i = dagen.indexOf(TARGET_DATE);
   const temps = json?.daily?.temperature_2m_max ?? [];
-  const gevuld = temps.filter((v) => v !== null).length;
+  const neers = json?.daily?.precipitation_sum ?? [];
+  const heeftWaarde = (j) => (temps[j] ?? null) !== null || (neers[j] ?? null) !== null;
+
+  let gevuld = 0;
+  let laatsteMetData = null;
+  for (let j = 0; j < dagen.length; j++) {
+    if (heeftWaarde(j)) {
+      gevuld++;
+      laatsteMetData = dagen[j];
+    }
+  }
 
   let status = 'OK';
   if (!dagen.length) status = 'LEEG';
   else if (gevuld === 0) status = 'GEEN DEKKING';
-  else if (i === -1) status = 'BUITEN BEREIK';
-  else if (temps[i] === null) status = 'GEEN DEKKING OP DOELDAG';
+  else if (i === -1 || !heeftWaarde(i)) status = 'REIKT NIET TOT DOELDAG';
 
   return {
     id: m.id,
     naam: m.naam,
     status,
-    dagen: dagen.length,
-    gevuld,
-    laatste: dagen.at(-1) ?? '–',
+    dagen: gevuld,
+    tempGevuld: temps.filter((v) => v !== null).length,
+    neerslagGevuld: neers.filter((v) => v !== null).length,
+    laatste: laatsteMetData ?? '–',
     doelwaarde: i === -1 ? null : temps[i],
     opgegeven: m.horizon,
     viaKern
@@ -80,7 +93,7 @@ console.log(
   `\nControle voor ${LOCATION.naam} (${LOCATION.latitude}, ${LOCATION.longitude}) op ${TARGET_DATE}\n`
 );
 console.log(
-  `${'model'.padEnd(breedte)}  ${'status'.padEnd(22)}  dagen  opgegeven  laatste dag  waarde doeldag`
+  `${'model'.padEnd(breedte)}  ${'status'.padEnd(22)}  dagen met data  opgegeven  laatste dag met data  waarde doeldag`
 );
 console.log('-'.repeat(breedte + 70));
 
@@ -89,15 +102,15 @@ for (const r of resultaten) {
   const opgegeven = r.opgegeven ? String(r.opgegeven).replace('.', ',') : '–';
   const regel =
     `${r.id.padEnd(breedte)}  ${c}${r.status.padEnd(22)}${kleur.uit}  ` +
-    `${String(r.dagen ?? '–').padStart(5)}  ${opgegeven.padStart(9)}  ${String(r.laatste).padStart(11)}  ` +
+    `${String(r.dagen ?? '–').padStart(14)}  ${opgegeven.padStart(9)}  ${String(r.laatste).padStart(20)}  ` +
     `${r.doelwaarde === null || r.doelwaarde === undefined ? '–' : `${r.doelwaarde} °C`}`;
   console.log(regel + (r.viaKern ? `${kleur.grijs}  (alleen kernvariabelen)${kleur.uit}` : ''));
   if (r.melding) console.log(`${' '.repeat(breedte + 2)}${kleur.rood}${r.melding}${kleur.uit}`);
 }
 
 const fouten = resultaten.filter((r) => r.status === 'FOUT');
-const geenDekking = resultaten.filter((r) => r.status.startsWith('GEEN DEKKING'));
-const buiten = resultaten.filter((r) => r.status === 'BUITEN BEREIK');
+const geenDekking = resultaten.filter((r) => r.status === 'GEEN DEKKING');
+const buiten = resultaten.filter((r) => r.status === 'REIKT NIET TOT DOELDAG');
 const ok = resultaten.filter((r) => r.status === 'OK');
 
 console.log(
@@ -119,7 +132,9 @@ if (afwijkend.length) {
 
 if (geenDekking.length) {
   console.log('Zonder dekking op deze locatie (overweeg weglaten of als "dekkingOnzeker" markeren):');
-  for (const r of geenDekking) console.log(`  ${r.id}`);
+  for (const r of geenDekking) {
+    console.log(`  ${r.id}: temperatuur ${r.tempGevuld} dagen gevuld, neerslag ${r.neerslagGevuld} dagen gevuld`);
+  }
   console.log('');
 }
 

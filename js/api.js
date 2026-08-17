@@ -115,17 +115,36 @@ function getal(reeks, i) {
 export function normaliseer(modelId, ruw) {
   const dagen = ruw?.daily?.time ?? [];
   const i = dagen.indexOf(TARGET_DATE);
+  const d = ruw?.daily ?? {};
 
-  if (i === -1) {
-    return {
-      id: modelId,
-      status: 'buiten_bereik',
-      horizonDagen: dagen.length,
-      laatsteDag: dagen.at(-1) ?? null
-    };
+  // Open-Meteo geeft áltijd het volledige aantal opgevraagde dagen terug en vult
+  // aan met null voorbij de horizon van het model. De lengte van de tijdas zegt
+  // dus niets; we moeten kijken tot welke dag er echt waarden staan.
+  const heeftWaarde = (j) =>
+    (d.temperature_2m_max?.[j] ?? null) !== null || (d.precipitation_sum?.[j] ?? null) !== null;
+
+  let dagenMetData = 0;
+  let laatsteDagMetData = null;
+  for (let j = 0; j < dagen.length; j++) {
+    if (heeftWaarde(j)) {
+      dagenMetData++;
+      laatsteDagMetData = dagen[j];
+    }
   }
 
-  const d = ruw.daily;
+  const bereik = { horizonDagen: dagenMetData, laatsteDag: laatsteDagMetData };
+
+  // Geen enkele dag met waarden: dit model levert hier niets.
+  if (!dagenMetData) {
+    return { id: modelId, status: 'geen_dekking', ...bereik };
+  }
+
+  // De dag zit niet op de as, of hij zit er wel maar zonder waarden: in beide
+  // gevallen reikt dit model nog niet tot de doeldag.
+  if (i === -1 || !heeftWaarde(i)) {
+    return { id: modelId, status: 'buiten_bereik', ...bereik };
+  }
+
   const dag = {
     code: getal(d.weather_code, i),
     tempMax: getal(d.temperature_2m_max, i),
@@ -139,17 +158,6 @@ export function normaliseer(modelId, ruw) {
     bewolking: getal(d.cloud_cover_mean, i),
     zonuren: getal(d.sunshine_duration, i) === null ? null : getal(d.sunshine_duration, i) / 3600
   };
-
-  // Het model reikt tot deze dag, maar levert er geen waarden voor: dan ligt
-  // deze locatie buiten zijn rekengebied.
-  if (dag.tempMax === null && dag.neerslag === null) {
-    return {
-      id: modelId,
-      status: 'geen_dekking',
-      horizonDagen: dagen.length,
-      laatsteDag: dagen.at(-1) ?? null
-    };
-  }
 
   const uren = [];
   const uurTijden = ruw?.hourly?.time ?? [];
@@ -166,14 +174,7 @@ export function normaliseer(modelId, ruw) {
     });
   }
 
-  return {
-    id: modelId,
-    status: 'ok',
-    horizonDagen: dagen.length,
-    laatsteDag: dagen.at(-1) ?? null,
-    dag,
-    uren
-  };
+  return { id: modelId, status: 'ok', ...bereik, dag, uren };
 }
 
 // --- cache ----------------------------------------------------------------

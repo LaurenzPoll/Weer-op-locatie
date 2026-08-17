@@ -62,7 +62,10 @@ for (const m of MODELLEN) {
   }
 
   const rnd = zaad(m.id);
-  const dagen = datums(bijz.dagen ?? 16);
+  // Net als de echte API: altijd 16 dagen op de tijdas, opgevuld met null
+  // voorbij de horizon van het model.
+  const dagen = datums(16);
+  const dagenMetData = bijz.dagen ?? 16;
   const doelIndex = dagen.indexOf(DOEL);
 
   const basisTemp = 23.5 + (rnd() - 0.5) * 7;
@@ -84,7 +87,7 @@ for (const m of MODELLEN) {
   };
 
   dagen.forEach((_, i) => {
-    const leeg = bijz.leeg === true;
+    const leeg = bijz.leeg === true || i >= dagenMetData;
     const t = basisTemp + Math.sin(i / 2.6) * 2.4;
     const n = i === doelIndex ? basisNeerslag : rnd() * 4;
     const push = (sleutel, waarde) => daily[sleutel].push(leeg ? null : waarde);
@@ -104,7 +107,7 @@ for (const m of MODELLEN) {
   // Uurwaarden alleen voor de doeldag: dat is het enige wat de app uitleest en
   // het houdt de fixture klein.
   const hourly = { time: [], temperature_2m: [], precipitation: [], wind_speed_10m: [], cloud_cover: [], weather_code: [] };
-  if (doelIndex !== -1 && !bijz.leeg) {
+  if (doelIndex !== -1 && !bijz.leeg && doelIndex < dagenMetData) {
     for (let u = 0; u < 24; u++) {
       const dagbocht = Math.sin(((u - 4) / 24) * Math.PI * 2);
       hourly.time.push(`${DOEL}T${String(u).padStart(2, '0')}:00`);

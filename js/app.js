@@ -245,17 +245,29 @@ function waardenHtml(r) {
     .join('')}</dl>`;
 }
 
+/** Vanaf welke dag mag je verwachten dat dit model de doeldag haalt? */
+function aanhaakDatum(horizon) {
+  if (!horizon) return null;
+  const d = new Date(`${TARGET_DATE}T12:00:00`);
+  d.setDate(d.getDate() - Math.floor(horizon));
+  return d.toISOString().slice(0, 10);
+}
+
 function uitlegStatusHtml(r, m) {
   if (r.status === 'buiten_bereik') {
-    const tot = r.laatsteDag ? f.korteDatum(r.laatsteDag) : 'onbekend';
-    return `<p class="statusuitleg">Dit model rekent ${r.horizonDagen} dagen vooruit, tot en met ${esc(tot)} — deze dag
-      valt daar nu nog buiten. Hij haakt automatisch aan zodra hij ver genoeg reikt${
-        m.horizon ? `, ongeveer ${esc(String(m.horizon).replace('.', ','))} dagen voor de datum` : ''
-      }.</p>`;
+    const tot = r.laatsteDag ? f.dagMaand(r.laatsteDag) : null;
+    const aanhaak = aanhaakDatum(m.horizon);
+    const verwacht =
+      aanhaak && f.dagenTot(aanhaak) > 0
+        ? ` Volgens de aanbieder rekent hij ${esc(String(m.horizon).replace('.', ','))} dagen vooruit, dus verwacht hem
+           hier vanaf ongeveer ${esc(f.dagMaand(aanhaak))}.`
+        : ' Hij haakt automatisch aan zodra hij ver genoeg reikt.';
+    return `<p class="statusuitleg">Dit model levert nu waarden tot en met ${esc(tot ?? 'onbekend')}
+      (${r.horizonDagen} ${r.horizonDagen === 1 ? 'dag' : 'dagen'}) — deze dag valt daar nog buiten.${verwacht}</p>`;
   }
   if (r.status === 'geen_dekking') {
-    return `<p class="statusuitleg">Dit model reikt wel tot deze dag, maar levert voor ${esc(LOCATION.naam)} geen
-      waarden: deze plek valt buiten zijn rekengebied.</p>`;
+    return `<p class="statusuitleg">Dit model levert voor ${esc(LOCATION.naam)} op geen enkele dag waarden. Deze plek
+      valt buiten zijn rekengebied, of hij levert de variabelen niet die deze app opvraagt.</p>`;
   }
   if (r.status === 'fout') {
     return `<p class="statusuitleg">Open-Meteo gaf geen bruikbaar antwoord voor dit model.
@@ -270,7 +282,7 @@ function kaartHtml(r, historie) {
   const schuif = r.status === 'ok' ? modelVerschuiving(historie, r.id, 't') : null;
 
   const metaDelen = [m.aanbieder, m.resolutie, `bijgewerkt ${m.update}`];
-  if (m.horizon) metaDelen.push(`bereik ${String(m.horizon).replace('.', ',')} dagen`);
+  if (m.horizon) metaDelen.push(`bereik ~${String(m.horizon).replace('.', ',')} dagen`);
 
   const merken = [
     m.anker ? '<span class="merk">anker</span>' : '',

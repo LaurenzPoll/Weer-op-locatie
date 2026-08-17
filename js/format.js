@@ -49,6 +49,12 @@ export function langeDatum(iso) {
   return `${DAGEN[d.getDay()]} ${d.getDate()} ${MAANDEN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "26 augustus" — zonder jaartal, voor tekst binnen hetzelfde jaar. */
+export function dagMaand(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  return `${d.getDate()} ${MAANDEN[d.getMonth()]}`;
+}
+
 export function korteDatum(iso) {
   const d = new Date(`${iso}T12:00:00`);
   return `${d.getDate()} ${MAANDEN[d.getMonth()].slice(0, 3)}`;
