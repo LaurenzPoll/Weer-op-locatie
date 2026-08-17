@@ -4,10 +4,11 @@
 // (open-meteo/open-meteo-website, src/routes/en/docs/options.ts) en gebruiken de
 // actuele namen met aanbieder-voorvoegsel (dwd_icon_*, ncep_gfs_*, cmc_gem_*).
 //
-// De veldwaarden `horizon` en `dekking` zijn wat de aanbieder opgeeft. Wat een
-// model op déze plek en dag werkelijk levert, bepaalt de app zelf bij het ophalen
-// en zie je terug in de statuschip op de kaart. Met scripts/check-models.mjs kun
-// je de opgegeven waarden tegen de echte API aan houden.
+// De veldwaarden `horizon` en `dekking` zijn wat de aanbieder opgeeft, waar nodig
+// bijgesteld naar wat de API voor deze locatie werkelijk teruggaf (gemeten met
+// scripts/check-models.mjs op 17 augustus 2026). Wat een model op déze dag levert,
+// bepaalt de app zelf bij het ophalen; dat zie je in de statuschip op de kaart.
+// Draai dat script opnieuw als je de catalogus of de locatie wijzigt.
 
 export const GROEPEN = {
   globaal: {
@@ -56,7 +57,7 @@ export const MODELLEN = [
     land: 'Europese Unie',
     vlag: '🇪🇺',
     resolutie: '9 km',
-    horizon: 10,
+    horizon: 15,
     update: 'elke 6 uur',
     dekking: 'wereldwijd',
     groep: 'globaal',
@@ -101,7 +102,7 @@ export const MODELLEN = [
     land: 'Verenigde Staten',
     vlag: '🇺🇸',
     resolutie: '25 km',
-    horizon: 10,
+    horizon: 16,
     update: 'elke 6 uur',
     dekking: 'wereldwijd',
     groep: 'globaal',
@@ -116,7 +117,7 @@ export const MODELLEN = [
     land: 'Verenigde Staten',
     vlag: '🇺🇸',
     resolutie: '25 km',
-    horizon: 16,
+    horizon: 10,
     update: 'elke 6 uur',
     dekking: 'wereldwijd',
     groep: 'globaal',
@@ -190,10 +191,11 @@ export const MODELLEN = [
     resolutie: '13 km',
     horizon: 12,
     update: 'elke 6 uur',
-    dekking: 'wereldwijd',
+    dekking: 'wereldwijd, maar via Open-Meteo komen er voor deze locatie geen waarden terug',
     groep: 'globaal',
+    dekkingOnzeker: true,
     waarom:
-      'Zuid-Korea draait een eigen variant van het Britse Unified Model, met eigen data-assimilatie. Familie van UKMO dus, en dat is juist het nut: staan die twee samen tegenover ECMWF, dan wijkt er één modelfamilie af en niet twee losse meningen.'
+      'Zuid-Korea draait een eigen variant van het Britse Unified Model, met eigen data-assimilatie. Familie van UKMO dus, en dat is juist het nut: staan die twee samen tegenover ECMWF, dan wijkt er één modelfamilie af en niet twee losse meningen. In de praktijk levert hij via Open-Meteo op deze plek echter geen enkele waarde, dus hij blijft hier voorlopig leeg.'
   },
   {
     id: 'cma_grapes_global',
@@ -202,7 +204,7 @@ export const MODELLEN = [
     land: 'China',
     vlag: '🇨🇳',
     resolutie: '15 km',
-    horizon: 10,
+    horizon: 5,
     update: 'elke 6 uur',
     dekking: 'wereldwijd',
     groep: 'globaal',
@@ -218,10 +220,11 @@ export const MODELLEN = [
     resolutie: '15 km',
     horizon: 10,
     update: 'elke 6 uur',
-    dekking: 'wereldwijd',
+    dekking: 'wereldwijd, maar via Open-Meteo komen er voor deze locatie geen waarden terug',
     groep: 'globaal',
+    dekkingOnzeker: true,
     waarom:
-      'Het Australische globale model, ook uit de Unified Model-familie. Ver van huis en niet op Europa geoptimaliseerd; hij staat er voor de volledigheid van "alle modellen" en als extra stem in de spreiding — niet als model waarop je je zaterdag plant.'
+      'Het Australische globale model, ook uit de Unified Model-familie. Ver van huis en niet op Europa geoptimaliseerd; hij staat er voor de volledigheid van "alle modellen". Net als het Koreaanse model geeft hij via Open-Meteo voor deze plek geen waarden terug, dus verwacht hier geen cijfers van hem.'
   },
 
   // -------------------------------------------------------------- regionaal
@@ -321,11 +324,10 @@ export const MODELLEN = [
     resolutie: '1,5 km',
     horizon: 2,
     update: 'elke 3 uur',
-    dekking: 'Frankrijk — Meerssen ligt op of net buiten de rand',
+    dekking: 'Frankrijk en directe omgeving — Meerssen valt er net binnen',
     groep: 'regionaal',
-    dekkingOnzeker: true,
     waarom:
-      'Met 1,5 km het fijnste raster in de hele lijst. De vraag is alleen of Meerssen binnen het Franse rekengebied valt: we zitten op of net buiten de noordoostrand. Hij staat erbij om dat feitelijk te laten zien — komt er niets terug, dan meldt de kaart eerlijk "geen dekking" in plaats van dat we hem stilletjes weglaten.'
+      'Met 1,5 km het fijnste raster in de hele lijst, en Meerssen valt net binnen de noordoostrand van het Franse rekengebied — gemeten aan de API, niet aangenomen. Voor de laatste twee dagen is dit samen met KNMI Harmonie en ICON-D2 de scherpste blik op waar precies een bui valt.'
   },
   {
     id: 'chmi_aladin_central_europe_2km',
@@ -336,11 +338,10 @@ export const MODELLEN = [
     resolutie: '2 km',
     horizon: 2.5,
     update: 'elke 6 uur',
-    dekking: 'Centraal-Europa — dekking op Meerssen onzeker',
+    dekking: 'Centraal-Europa, inclusief Limburg',
     groep: 'regionaal',
-    dekkingOnzeker: true,
     waarom:
-      'Het Tsjechische Aladin-model op 2 km over Centraal-Europa. Of zijn gebied tot in Limburg doorloopt is niet zeker; ook hier laat de app het gewoon zien in plaats van erover te gokken.'
+      'Het Tsjechische Aladin-model op 2 km over Centraal-Europa, en zijn gebied loopt door tot in Limburg. Daarmee heb je voor de laatste dagen een derde onafhankelijke 2 km-blik naast het KNMI en de Duitsers: andere code, andere instellingen, dezelfde vraag.'
   },
 
   // ------------------------------------------------------------- referentie
