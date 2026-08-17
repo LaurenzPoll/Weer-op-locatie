@@ -256,3 +256,91 @@ export function trendLijn(punten, { breedte = 132, hoogte = 34 } = {}) {
   <circle class="trend-punt" cx="${x(punten.length - 1).toFixed(1)}" cy="${y(laatste.waarde).toFixed(1)}" r="4"/>
 </svg>`;
 }
+
+/**
+ * Rooster van modellen tegen uren: elke rij een model, elke kolom een uur uit
+ * het dagvenster, en de kleurintensiteit de waarde. Dit is de vorm die de vraag
+ * "blijft het tussen elf en acht droog" in één blik beantwoordt — een lijn per
+ * model zou bij twintig modellen een kluwen worden.
+ *
+ * Eén kleurverloop van licht naar donker (dus geen regenboog), en de betekenis
+ * van de kleur staat in de legenda eronder. Nul is geen kleur maar leegte: droog
+ * moet als niets lezen, niet als "de lichtste blauwtint".
+ */
+export function uurRooster({ rijen, uren, meting }) {
+  if (!rijen.length) {
+    return `<p class="leeg">Nog geen model met uurwaarden voor deze dag. Zodra de eerste modellen de datum halen,
+      vult dit rooster zich.</p>`;
+  }
+
+  const [lo, hi] = meting.domein;
+  const stappen = 7;
+
+  const cel = (waarde, model, uur) => {
+    const tijd = `${String(uur).padStart(2, '0')}:00`;
+    if (waarde === null || waarde === undefined) {
+      return `<td class="cel-geen" title="${esc(`${model} · ${tijd} — geen waarde`)}">
+        <span class="enkel-lezer">geen waarde</span></td>`;
+    }
+    const tekst = `${model} · ${tijd} — ${meting.formatter(waarde)}`;
+    if (meting.nulIsLeeg && waarde < meting.drempel) {
+      return `<td class="cel-nul" data-tip="${esc(tekst)}" title="${esc(tekst)}">
+        <span class="enkel-lezer">${esc(meting.formatter(waarde))}</span></td>`;
+    }
+    const deel = hi > lo ? (waarde - lo) / (hi - lo) : 1;
+    const stap = Math.min(stappen, Math.max(1, Math.round(1 + deel * (stappen - 1))));
+    return `<td data-stap="${stap}" data-tip="${esc(tekst)}" title="${esc(tekst)}">
+      <span class="enkel-lezer">${esc(meting.formatter(waarde))}</span></td>`;
+  };
+
+  const koppen = uren.map((u) => `<th scope="col">${String(u).padStart(2, '0')}</th>`).join('');
+
+  const lijven = rijen
+    .map(
+      (r) => `<tr>
+      <th scope="row"><a href="#model-${esc(r.id)}" title="${esc(`${r.naam} — naar de kaart van dit model`)}">${esc(
+        r.kort ?? r.naam
+      )}</a></th>
+      ${uren.map((u) => cel(r.waarden[u] ?? null, r.naam, u)).join('')}
+      <td class="rooster-som">${esc(meting.samenvattingFormatter(r.samenvatting))}</td>
+    </tr>`
+    )
+    .join('');
+
+  const voet = meting.voet
+    ? `<tfoot><tr>
+        <th scope="row">${esc(meting.voet.label)}</th>
+        ${uren
+          .map((u) => `<td class="rooster-voet">${esc(meting.voet.formatter(meting.voet.waarden[u]))}</td>`)
+          .join('')}
+        <td class="rooster-voet"></td>
+      </tr></tfoot>`
+    : '';
+
+  const legenda = `
+    <div class="rooster-legenda">
+      <span class="legenda-uit">${esc(meting.legendaLaag)}</span>
+      <span class="legenda-balk">${Array.from({ length: stappen }, (_, i) => `<span data-stap="${i + 1}"></span>`).join(
+        ''
+      )}</span>
+      <span class="legenda-uit">${esc(meting.legendaHoog)}</span>
+      ${meting.nulIsLeeg ? `<span class="legenda-item"><span class="legenda-nul"></span> ${esc(meting.nulLabel)}</span>` : ''}
+    </div>`;
+
+  return `
+  <div class="rooster-omhulsel">
+    <table class="rooster">
+      <caption class="enkel-lezer">${esc(meting.tabelUitleg)}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Model</th>
+          ${koppen}
+          <th scope="col" class="rooster-som">${esc(meting.samenvattingLabel)}</th>
+        </tr>
+      </thead>
+      <tbody>${lijven}</tbody>
+      ${voet}
+    </table>
+  </div>
+  ${legenda}`;
+}

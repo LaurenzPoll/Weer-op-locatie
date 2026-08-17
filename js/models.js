@@ -366,3 +366,35 @@ export const MODEL_IDS = MODELLEN.map((m) => m.id);
 export function model(id) {
   return MODELLEN.find((m) => m.id === id);
 }
+
+// Korte namen voor het uurrooster, waar de volledige modelnaam de kolom onnodig
+// smal maakt — op een telefoon is dat het verschil tussen zes en tien uren in
+// beeld. Op de kaarten blijft de volledige naam staan.
+const KORT = {
+  ecmwf_ifs025: 'ECMWF IFS',
+  ecmwf_ifs: 'ECMWF HRES',
+  ecmwf_aifs025_single: 'ECMWF AIFS',
+  ncep_gfs_seamless: 'GFS',
+  ncep_aigfs025: 'AI-GFS',
+  ncep_hgefs025_ensemble_mean: 'HGEFS ensemble',
+  dwd_icon_global: 'ICON Global',
+  ukmo_global_deterministic_10km: 'UKMO Global',
+  cmc_gem_gdps: 'GEM Global',
+  jma_gsm: 'JMA GSM',
+  kma_gdps: 'KMA GDPS',
+  cma_grapes_global: 'GRAPES',
+  bom_access_global: 'ACCESS-G',
+  dwd_icon_eu: 'ICON-EU',
+  dwd_icon_d2: 'ICON-D2',
+  knmi_harmonie_arome_netherlands: 'KNMI NL 2 km',
+  knmi_harmonie_arome_europe: 'KNMI Europa',
+  dmi_harmonie_arome_europe: 'DMI Harmonie',
+  meteofrance_arpege_europe: 'ARPEGE',
+  meteofrance_arome_france_hd: 'AROME HD',
+  chmi_aladin_central_europe_2km: 'Aladin CZ',
+  best_match: 'Best Match'
+};
+
+export function kortNaam(id) {
+  return KORT[id] ?? model(id)?.naam ?? id;
+}

@@ -485,6 +485,258 @@ svg.trend {
   color: var(--text-2);
 }
 
+/* ------------------------------------------------------------- uurrooster */
+
+/* Eén kleurverloop van licht naar donker, uit dezelfde blauwe reeks als de rest
+   van de app. In donkere modus loopt hetzelfde verloop om: de laagste waarde
+   moet naar de achtergrond wegvallen, niet oplichten. */
+:root {
+  --ramp-1: #b7d3f6;
+  --ramp-2: #86b6ef;
+  --ramp-3: #5598e7;
+  --ramp-4: #2a78d6;
+  --ramp-5: #1c5cab;
+  --ramp-6: #104281;
+  --ramp-7: #0d366b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    --ramp-1: #0d366b;
+    --ramp-2: #184f95;
+    --ramp-3: #256abf;
+    --ramp-4: #2a78d6;
+    --ramp-5: #5598e7;
+    --ramp-6: #86b6ef;
+    --ramp-7: #b7d3f6;
+  }
+}
+
+:root[data-theme='dark'] {
+  --ramp-1: #0d366b;
+  --ramp-2: #184f95;
+  --ramp-3: #256abf;
+  --ramp-4: #2a78d6;
+  --ramp-5: #5598e7;
+  --ramp-6: #86b6ef;
+  --ramp-7: #b7d3f6;
+}
+
+.enkel-lezer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.schakelaar {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rand);
+  border-radius: 999px;
+  margin-bottom: 0.85rem;
+}
+.schakelaar button {
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  min-height: 40px;
+  cursor: pointer;
+}
+.schakelaar button:hover {
+  background: var(--wash);
+  color: var(--text-1);
+}
+.schakelaar button[aria-pressed='true'] {
+  background: var(--text-1);
+  color: var(--surface-1);
+}
+
+.rooster-kop {
+  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+  color: var(--text-2);
+  max-width: 68ch;
+}
+.rooster-kop strong {
+  color: var(--text-1);
+}
+
+.rooster-omhulsel {
+  overflow-x: auto;
+  /* Gepositioneerd, zodat de screenreader-tekst in de cellen binnen dit
+     scrollkader blijft. Zonder dit rekt zij het hele document op en scrolt de
+     pagina zelf horizontaal mee. */
+  position: relative;
+}
+
+.rooster {
+  border-collapse: separate;
+  /* De 2 px tussenruimte is de achtergrondkleur zelf: die scheidt de vakjes,
+     geen lijntjes eromheen. */
+  border-spacing: 2px;
+  font-size: 0.82rem;
+}
+.rooster th,
+.rooster td {
+  padding: 0;
+  font-weight: 400;
+}
+.rooster thead th {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding-bottom: 0.15rem;
+  min-width: 26px;
+}
+.rooster thead th:first-child,
+.rooster tbody th,
+.rooster tfoot th {
+  text-align: left;
+  min-width: 88px;
+  max-width: 150px;
+  padding-right: 0.5rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.rooster tbody th a {
+  color: var(--text-1);
+  text-decoration: none;
+}
+.rooster tbody th a:hover {
+  text-decoration: underline;
+}
+.rooster tbody td {
+  height: 26px;
+  border-radius: 4px;
+  background: var(--ramp-4);
+}
+.rooster tbody td[data-stap='1'] {
+  background: var(--ramp-1);
+}
+.rooster tbody td[data-stap='2'] {
+  background: var(--ramp-2);
+}
+.rooster tbody td[data-stap='3'] {
+  background: var(--ramp-3);
+}
+.rooster tbody td[data-stap='4'] {
+  background: var(--ramp-4);
+}
+.rooster tbody td[data-stap='5'] {
+  background: var(--ramp-5);
+}
+.rooster tbody td[data-stap='6'] {
+  background: var(--ramp-6);
+}
+.rooster tbody td[data-stap='7'] {
+  background: var(--ramp-7);
+}
+.rooster tbody td.cel-nul {
+  background: var(--wash);
+}
+.rooster tbody td.cel-geen {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    var(--raster) 3px,
+    var(--raster) 4px
+  );
+}
+.rooster tbody td:hover {
+  outline: 2px solid var(--text-1);
+  outline-offset: -1px;
+}
+.rooster tbody tr:hover th a {
+  text-decoration: underline;
+}
+.rooster .rooster-som {
+  background: transparent !important;
+  padding-left: 0.6rem;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  outline: 0 !important;
+}
+.rooster thead .rooster-som {
+  font-weight: 400;
+  text-align: left;
+}
+.rooster .rooster-voet {
+  text-align: center;
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  padding-top: 0.2rem;
+}
+.rooster tfoot th {
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding-top: 0.2rem;
+}
+
+.rooster-legenda {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+.legenda-balk {
+  display: inline-flex;
+  gap: 2px;
+}
+.legenda-balk span {
+  width: 20px;
+  height: 12px;
+  border-radius: 2px;
+}
+.legenda-balk span[data-stap='1'] {
+  background: var(--ramp-1);
+}
+.legenda-balk span[data-stap='2'] {
+  background: var(--ramp-2);
+}
+.legenda-balk span[data-stap='3'] {
+  background: var(--ramp-3);
+}
+.legenda-balk span[data-stap='4'] {
+  background: var(--ramp-4);
+}
+.legenda-balk span[data-stap='5'] {
+  background: var(--ramp-5);
+}
+.legenda-balk span[data-stap='6'] {
+  background: var(--ramp-6);
+}
+.legenda-balk span[data-stap='7'] {
+  background: var(--ramp-7);
+}
+.legenda-nul {
+  display: inline-block;
+  width: 20px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--wash);
+  border: 1px solid var(--rand);
+  vertical-align: -2px;
+}
+
 /* --------------------------------------------------------------- groepen */
 
 .groep {
@@ -839,4 +1091,10 @@ svg.trend {
   .tegel {
     border: 1px solid CanvasText;
   }
+}
+
+.rooster-noot {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
 }

@@ -56,6 +56,21 @@
         <div id="wolken"></div>
       </section>
 
+      <section class="paneel" id="rooster" aria-labelledby="rooster-titel">
+        <h2 id="rooster-titel" class="paneel-titel">Uur voor uur, tussen 11:00 en 20:00</h2>
+        <p class="paneel-uitleg">
+          Elke rij is een model, elke kolom een uur. Hoe donkerder het vakje, hoe meer. Zo zie je in één blik of de
+          modellen de regen op hetzelfde moment zetten of ieder een ander uur kiezen.
+        </p>
+        <div id="rooster-knoppen" class="schakelaar" role="group" aria-label="Kies wat je wilt zien">
+          <button type="button" data-meting="regen" aria-pressed="true">Regen</button>
+          <button type="button" data-meting="zon" aria-pressed="false">Zon</button>
+          <button type="button" data-meting="temp" aria-pressed="false">Temperatuur</button>
+        </div>
+        <p id="rooster-kop" class="rooster-kop" role="status"></p>
+        <div id="rooster-inhoud"></div>
+      </section>
+
       <section class="paneel" id="trend" aria-labelledby="trend-titel" hidden>
         <h2 id="trend-titel" class="paneel-titel">Schuift de verwachting nog?</h2>
         <div id="trend-inhoud"></div>

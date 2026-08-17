@@ -1,11 +1,11 @@
 // Opbouw van de pagina. Haalt de verwachtingen op, rekent de spreiding uit en
 // zet alles op het scherm.
 
-import { LOCATION, TARGET_DATE } from './config.js';
-import { GROEPEN, MODELLEN } from './models.js';
+import { LOCATION, TARGET_DATE, VENSTER } from './config.js';
+import { GROEPEN, MODELLEN, kortNaam } from './models.js';
 import { laadVerwachtingen } from './api.js';
-import { samenvatting } from './stats.js';
-import { puntenWolk, trendLijn, uurGrafiek } from './charts.js';
+import { mediaan, samenvatting } from './stats.js';
+import { puntenWolk, trendLijn, uurGrafiek, uurRooster } from './charts.js';
 import * as f from './format.js';
 import { weercode, windstreek } from './weercodes.js';
 import { bewaarMeting, leesHistorie, modelVerschuiving, trendPunten, verschuiving } from './history.js';
@@ -402,13 +402,200 @@ function tabelHtml(resultaten) {
   </table>`;
 }
 
+// --------------------------------------------------------------- uurrooster
+
+const VENSTER_UREN = [];
+for (let u = VENSTER.van; u <= VENSTER.tot; u++) VENSTER_UREN.push(u);
+
+const venTekst = `${String(VENSTER.van).padStart(2, '0')}:00 en ${String(VENSTER.tot).padStart(2, '0')}:00`;
+const som = (lijst) => lijst.reduce((a, b) => a + b, 0);
+
+// De drie manieren om naar het venster te kijken. Per meting: waar de waarde
+// vandaan komt, hoe de schaal loopt, wat de regel eronder samenvat, en welk
+// getal rechts per model staat.
+const METINGEN = {
+  regen: {
+    label: 'Regen',
+    sleutel: 'neerslag',
+    formatter: (v) => f.mm(v),
+    nulIsLeeg: true,
+    drempel: 0.05,
+    nulLabel: 'droog',
+    legendaLaag: 'een spat',
+    legendaHoog: 'flinke regen',
+    samenvattingLabel: `totaal`,
+    samenvattingFormatter: (v) => f.mm(v),
+    rijSamenvatting: (waarden) => som(waarden),
+    domein: (alle) => [0, Math.max(0.5, ...alle)],
+    voetLabel: 'modellen met regen',
+    voetWaarde: (perUur) => perUur.filter((v) => v >= 0.05).length,
+    voetFormatter: (v) => (v === null ? '' : String(v)),
+    tabelUitleg: `Neerslag per uur per model tussen ${venTekst}. Elke cel bevat de waarde in millimeter.`,
+    kop: (rijen) => {
+      const totalen = rijen.map((r) => r.samenvatting);
+      const nat = totalen.filter((v) => v >= 0.5).length;
+      const natste = rijen.reduce((a, b) => (a.samenvatting >= b.samenvatting ? a : b));
+      if (!nat) {
+        return `Alle ${rijen.length} modellen houden het tussen ${venTekst} vrijwel droog.`;
+      }
+      const med = mediaan(totalen);
+      // Een mediaan van 0,0 mm naast "4 van de 10 geven regen" leest verwarrend;
+      // dan is de mededeling juist dat de meerderheid droog blijft.
+      const medTekst =
+        med < 0.5
+          ? `de meerderheid blijft droog`
+          : `de mediaan komt op ${esc(f.mm(med))}`;
+      return `<strong>${nat} van de ${rijen.length} modellen</strong> ${nat === 1 ? 'geeft' : 'geven'} meer dan
+        0,5 mm tussen ${venTekst} — ${medTekst}, en het natste model geeft ${esc(f.mm(natste.samenvatting))}
+        (${esc(natste.naam)}).`;
+    }
+  },
+  zon: {
+    label: 'Zon',
+    sleutel: 'zon',
+    formatter: (v) => `${Math.round(v)} min`,
+    nulIsLeeg: true,
+    drempel: 1,
+    nulLabel: 'geen zon',
+    legendaLaag: 'nauwelijks',
+    legendaHoog: 'vol uur zon',
+    samenvattingLabel: 'totaal',
+    samenvattingFormatter: (v) => f.uren(v / 60),
+    rijSamenvatting: (waarden) => som(waarden),
+    domein: () => [0, 60],
+    voetLabel: 'mediaan (minuten)',
+    voetWaarde: (perUur) => (perUur.length ? mediaan(perUur) : null),
+    voetFormatter: (v) => (v === null ? '' : `${Math.round(v)}`),
+    tabelUitleg: `Zonneschijn in minuten per uur per model tussen ${venTekst}.`,
+    kop: (rijen) => {
+      const totalen = rijen.map((r) => r.samenvatting / 60);
+      const meest = rijen.reduce((a, b) => (a.samenvatting >= b.samenvatting ? a : b));
+      return `Mediaan <strong>${esc(f.uren(mediaan(totalen)))} zon</strong> tussen ${venTekst} —
+        van ${esc(f.uren(Math.min(...totalen)))} tot ${esc(f.uren(Math.max(...totalen)))}
+        (zonnigst: ${esc(meest.naam)}).`;
+    }
+  },
+  temp: {
+    label: 'Temperatuur',
+    sleutel: 'temp',
+    formatter: (v) => f.temp(v),
+    nulIsLeeg: false,
+    drempel: null,
+    nulLabel: '',
+    legendaLaag: 'koeler',
+    legendaHoog: 'warmer',
+    samenvattingLabel: 'hoogste',
+    samenvattingFormatter: (v) => f.temp(v),
+    rijSamenvatting: (waarden) => Math.max(...waarden),
+    domein: (alle) => [Math.min(...alle), Math.max(...alle)],
+    voetLabel: 'mediaan (°C)',
+    voetWaarde: (perUur) => (perUur.length ? mediaan(perUur) : null),
+    voetFormatter: (v) => (v === null ? '' : f.graden(v)),
+    tabelUitleg: `Temperatuur per uur per model tussen ${venTekst}, in graden Celsius.`,
+    kop: (rijen) => {
+      const toppen = rijen.map((r) => r.samenvatting);
+      return `Mediane hoogste temperatuur tussen ${venTekst}: <strong>${esc(f.temp(mediaan(toppen)))}</strong> —
+        de modellen lopen van ${esc(f.temp(Math.min(...toppen)))} tot ${esc(f.temp(Math.max(...toppen)))}.`;
+    }
+  }
+};
+
+const METING_SLEUTEL = 'weer-op-locatie:meting';
+let huidigeMeting = 'regen';
+try {
+  const bewaard = localStorage.getItem(METING_SLEUTEL);
+  if (bewaard && METINGEN[bewaard]) huidigeMeting = bewaard;
+} catch {
+  // Zonder opslag begint hij simpelweg elke keer bij regen.
+}
+
+function bouwRooster(resultaten, metingSleutel) {
+  const meting = METINGEN[metingSleutel];
+  const rijen = [];
+  const overgeslagen = [];
+  const perUur = Object.fromEntries(VENSTER_UREN.map((u) => [u, []]));
+
+  for (const r of resultaten) {
+    if (r.status !== 'ok' || !r.uren?.length) continue;
+    const waarden = {};
+    let aantalGevuld = 0;
+    for (const uur of VENSTER_UREN) {
+      const treffer = r.uren.find((x) => x.uur === uur);
+      const waarde = treffer ? (treffer[meting.sleutel] ?? null) : null;
+      waarden[uur] = waarde;
+      if (waarde !== null) {
+        aantalGevuld++;
+        perUur[uur].push(waarde);
+      }
+    }
+    if (!aantalGevuld) {
+      // Het model heeft wel uurwaarden, maar niet déze grootheid. Dat benoemen we
+      // liever dan de rij stilletjes weg te laten.
+      overgeslagen.push(modellenPerId[r.id].naam);
+      continue;
+    }
+    const gevuld = Object.values(waarden).filter((v) => v !== null);
+    rijen.push({
+      id: r.id,
+      naam: modellenPerId[r.id].naam,
+      kort: kortNaam(r.id),
+      waarden,
+      samenvatting: meting.rijSamenvatting(gevuld)
+    });
+  }
+
+  if (!rijen.length) return { rijen, meting: null, overgeslagen };
+
+  const alle = rijen.flatMap((r) => Object.values(r.waarden).filter((v) => v !== null));
+  const uitgebreid = {
+    ...meting,
+    domein: meting.domein(alle),
+    voet: {
+      label: meting.voetLabel,
+      waarden: Object.fromEntries(VENSTER_UREN.map((u) => [u, meting.voetWaarde(perUur[u])])),
+      formatter: meting.voetFormatter
+    }
+  };
+  return { rijen, meting: uitgebreid, overgeslagen };
+}
+
+function renderRooster(resultaten) {
+  const { rijen, meting, overgeslagen } = bouwRooster(resultaten, huidigeMeting);
+  const basis = METINGEN[huidigeMeting];
+
+  el('rooster-knoppen')
+    .querySelectorAll('button')
+    .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.meting === huidigeMeting)));
+
+  if (!rijen.length) {
+    el('rooster-kop').textContent = '';
+    el('rooster-inhoud').innerHTML = `<p class="leeg">Geen model levert ${basis.label.toLowerCase()} per uur voor deze
+      dag. Zodra de modellen dichter bij de datum komen, vult dit rooster zich.</p>`;
+    return;
+  }
+
+  el('rooster-kop').innerHTML = basis.kop(rijen);
+  const noot = overgeslagen.length
+    ? `<p class="rooster-noot">${esc(overgeslagen.join(', '))} ${
+        overgeslagen.length === 1 ? 'levert' : 'leveren'
+      } ${esc(basis.label.toLowerCase())} niet per uur en ${
+        overgeslagen.length === 1 ? 'staat' : 'staan'
+      } daarom niet in dit rooster.</p>`
+    : '';
+  el('rooster-inhoud').innerHTML = uurRooster({ rijen, uren: VENSTER_UREN, meting }) + noot;
+}
+
 // -------------------------------------------------------------------- tekenen
+
+let laatsteResultaten = [];
 
 function render(resultaten, meta) {
   const sam = samenvatting(resultaten);
 
   el('consensus-inhoud').innerHTML = consensusHtml(sam);
   el('legenda').innerHTML = legendaHtml(resultaten);
+  laatsteResultaten = resultaten;
+  renderRooster(resultaten);
   el('wolken').innerHTML = wolkenHtml(sam);
   el('groepen').innerHTML = groepenHtml(resultaten, meta.historie);
   el('tabel').innerHTML = tabelHtml(resultaten);
@@ -486,6 +673,18 @@ function start() {
   vulKop();
   zetTooltipOp();
   el('verversen').addEventListener('click', () => laad({ forceer: true }));
+
+  el('rooster-knoppen').addEventListener('click', (e) => {
+    const knop = e.target.closest('button[data-meting]');
+    if (!knop || !METINGEN[knop.dataset.meting]) return;
+    huidigeMeting = knop.dataset.meting;
+    try {
+      localStorage.setItem(METING_SLEUTEL, huidigeMeting);
+    } catch {
+      // Niet kunnen onthouden is geen reden om de weergave niet te wisselen.
+    }
+    renderRooster(laatsteResultaten);
+  });
 
   const dagen = f.dagenTot(TARGET_DATE);
   if (dagen < 0) {

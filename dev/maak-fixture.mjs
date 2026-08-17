@@ -39,6 +39,7 @@ function zaad(tekst) {
 // Per model: hoeveel dagen het antwoord beslaat, en of het bruikbaar is.
 const BIJZONDER = {
   ecmwf_ifs: { dagen: 10 }, // haalt de doeldag net niet
+  ncep_aigfs025: { geenZon: true }, // levert geen uurlijkse zonneschijn
   dwd_icon_global: { dagen: 8 },
   ukmo_global_deterministic_10km: { dagen: 7 },
   dwd_icon_eu: { dagen: 6 },
@@ -106,7 +107,15 @@ for (const m of MODELLEN) {
 
   // Uurwaarden alleen voor de doeldag: dat is het enige wat de app uitleest en
   // het houdt de fixture klein.
-  const hourly = { time: [], temperature_2m: [], precipitation: [], wind_speed_10m: [], cloud_cover: [], weather_code: [] };
+  const hourly = {
+    time: [],
+    temperature_2m: [],
+    precipitation: [],
+    wind_speed_10m: [],
+    cloud_cover: [],
+    sunshine_duration: [],
+    weather_code: []
+  };
   if (doelIndex !== -1 && !bijz.leeg && doelIndex < dagenMetData) {
     for (let u = 0; u < 24; u++) {
       const dagbocht = Math.sin(((u - 4) / 24) * Math.PI * 2);
@@ -114,7 +123,14 @@ for (const m of MODELLEN) {
       hourly.temperature_2m.push(Number((basisTemp - 4 + dagbocht * 5).toFixed(1)));
       hourly.precipitation.push(u > 12 && u < 19 && basisNeerslag > 1 ? Number((basisNeerslag / 5).toFixed(1)) : 0);
       hourly.wind_speed_10m.push(Number((10 + rnd() * 14).toFixed(1)));
-      hourly.cloud_cover.push(Math.round(20 + rnd() * 75));
+      const bewolking = Math.round(20 + rnd() * 75);
+      hourly.cloud_cover.push(bewolking);
+      // Zonneschijn in seconden per uur; 's nachts nul, en één model levert de
+      // variabele niet zodat het rooster ook die situatie moet tonen.
+      const dag = u >= 6 && u <= 21;
+      hourly.sunshine_duration.push(
+        bijz.geenZon ? null : dag ? Math.round(((100 - bewolking) / 100) * 3600) : 0
+      );
       hourly.weather_code.push(basisNeerslag > 6 && u > 13 && u < 18 ? 82 : 2);
     }
   }
