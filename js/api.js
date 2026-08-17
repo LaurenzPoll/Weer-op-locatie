@@ -30,7 +30,14 @@ const DAG_VARIABELEN = [
   'sunshine_duration'
 ];
 
-const UUR_VARIABELEN = ['temperature_2m', 'precipitation', 'wind_speed_10m', 'cloud_cover', 'weather_code'];
+const UUR_VARIABELEN = [
+  'temperature_2m',
+  'precipitation',
+  'wind_speed_10m',
+  'cloud_cover',
+  'sunshine_duration',
+  'weather_code'
+];
 
 // Terugvalset voor modellen die één van de bovenstaande variabelen niet kennen:
 // alleen wat elk model in huis heeft. Zonder deze terugval zou zo'n model als
@@ -170,6 +177,8 @@ export function normaliseer(modelId, ruw) {
       neerslag: getal(ruw.hourly.precipitation, u),
       wind: getal(ruw.hourly.wind_speed_10m, u),
       bewolking: getal(ruw.hourly.cloud_cover, u),
+      // Zonneschijn komt in seconden per uur; minuten leest prettiger.
+      zon: getal(ruw.hourly.sunshine_duration, u) === null ? null : getal(ruw.hourly.sunshine_duration, u) / 60,
       code: getal(ruw.hourly.weather_code, u)
     });
   }

@@ -13,6 +13,10 @@ export const LOCATION = {
   timezone: 'Europe/Amsterdam'
 };
 
+// Het dagvenster waar het om gaat: tussen deze uren wil je weten of het droog
+// blijft. Beide grenzen zijn inclusief, dus 11 tot en met 20 uur.
+export const VENSTER = { van: 11, tot: 20 };
+
 export const API_BASE = 'https://api.open-meteo.com/v1/forecast';
 
 // Hoe lang een ophaal geldig blijft voordat de app opnieuw naar Open-Meteo gaat.

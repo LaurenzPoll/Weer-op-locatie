@@ -7,7 +7,7 @@
 //
 // Geen npm-pakketten nodig: node 18+ heeft fetch aan boord.
 
-import { LOCATION, TARGET_DATE } from '../js/config.js';
+import { LOCATION, TARGET_DATE, VENSTER } from '../js/config.js';
 import { MODELLEN } from '../js/models.js';
 import { bouwUrl } from '../js/api.js';
 
@@ -63,6 +63,24 @@ async function controleer(m) {
     }
   }
 
+  // Uurwaarden binnen het venster: hebben we per model genoeg voor het rooster?
+  const uurTijden = json?.hourly?.time ?? [];
+  const inVenster = [];
+  for (let u = 0; u < uurTijden.length; u++) {
+    if (!uurTijden[u].startsWith(TARGET_DATE)) continue;
+    const uur = Number(uurTijden[u].slice(11, 13));
+    if (uur >= VENSTER.van && uur <= VENSTER.tot) inVenster.push(u);
+  }
+  const uurGevuld = (sleutel) =>
+    inVenster.filter((u) => (json?.hourly?.[sleutel]?.[u] ?? null) !== null).length;
+  const uurwaarden = {
+    uren: inVenster.length,
+    neerslag: uurGevuld('precipitation'),
+    zon: uurGevuld('sunshine_duration'),
+    temperatuur: uurGevuld('temperature_2m'),
+    bewolking: uurGevuld('cloud_cover')
+  };
+
   let status = 'OK';
   if (!dagen.length) status = 'LEEG';
   else if (gevuld === 0) status = 'GEEN DEKKING';
@@ -78,6 +96,7 @@ async function controleer(m) {
     laatste: laatsteMetData ?? '–',
     doelwaarde: i === -1 ? null : temps[i],
     opgegeven: m.horizon,
+    uurwaarden,
     viaKern
   };
 }
@@ -134,6 +153,21 @@ if (geenDekking.length) {
   console.log('Zonder dekking op deze locatie (overweeg weglaten of als "dekkingOnzeker" markeren):');
   for (const r of geenDekking) {
     console.log(`  ${r.id}: temperatuur ${r.tempGevuld} dagen gevuld, neerslag ${r.neerslagGevuld} dagen gevuld`);
+  }
+  console.log('');
+}
+
+// Uurwaarden in het venster: hierop leunt het rooster met modellen tegen uren.
+const metUren = resultaten.filter((r) => r.status === 'OK' && r.uurwaarden);
+if (metUren.length) {
+  console.log(`Uurwaarden tussen ${VENSTER.van}:00 en ${VENSTER.tot}:00 (van de modellen met data):`);
+  for (const r of metUren) {
+    const u = r.uurwaarden;
+    console.log(
+      `  ${r.id.padEnd(breedte)}  uren ${String(u.uren).padStart(2)}  ` +
+        `neerslag ${String(u.neerslag).padStart(2)}  zon ${String(u.zon).padStart(2)}  ` +
+        `temperatuur ${String(u.temperatuur).padStart(2)}  bewolking ${String(u.bewolking).padStart(2)}`
+    );
   }
   console.log('');
 }
