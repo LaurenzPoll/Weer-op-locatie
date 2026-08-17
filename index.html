@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weer op locatie — Meerssen, 28 augustus</title>
+    <meta
+      name="description"
+      content="Alle weermodellen naast elkaar voor één dag in Meerssen, met per model de uitleg waarom het meedoet."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="overslaan" href="#modellen">Direct naar de modellen</a>
+
+    <header class="kop">
+      <div class="omhulsel kop-binnen">
+        <div>
+          <p class="kop-plaats" id="plaats">Meerssen</p>
+          <h1 id="datum">28 augustus</h1>
+          <p class="kop-aftellen" id="aftellen"></p>
+        </div>
+        <div class="kop-acties">
+          <button id="verversen" type="button" class="knop">
+            <span aria-hidden="true">↻</span> Verversen
+          </button>
+          <p class="kop-status" id="ophaalstatus" role="status"></p>
+        </div>
+      </div>
+    </header>
+
+    <main class="omhulsel">
+      <!-- Melding als de datum buiten het bereik van de API valt -->
+      <div id="venstermelding" hidden></div>
+
+      <section class="paneel" id="consensus" aria-labelledby="consensus-titel">
+        <h2 id="consensus-titel" class="paneel-titel">Wat zeggen ze samen?</h2>
+        <div id="consensus-inhoud" class="consensus-inhoud">
+          <p class="leeg">Verwachtingen worden opgehaald…</p>
+        </div>
+      </section>
+
+      <section class="paneel" id="spreiding" aria-labelledby="spreiding-titel">
+        <h2 id="spreiding-titel" class="paneel-titel">Spreiding tussen de modellen</h2>
+        <p class="paneel-uitleg">
+          Elke stip is één model. Zitten de stippen dicht bij elkaar, dan is de verwachting stevig; liggen ze ver
+          uiteen, dan is het nog echt open.
+        </p>
+        <div id="legenda" class="legenda"></div>
+        <div id="wolken"></div>
+      </section>
+
+      <section class="paneel" id="trend" aria-labelledby="trend-titel" hidden>
+        <h2 id="trend-titel" class="paneel-titel">Schuift de verwachting nog?</h2>
+        <div id="trend-inhoud"></div>
+      </section>
+
+      <section id="modellen" aria-labelledby="modellen-titel">
+        <h2 id="modellen-titel" class="paneel-titel groot">Model voor model</h2>
+        <p class="paneel-uitleg">
+          Bij elk model staat waarom het in deze lijst hoort en wat je van zijn antwoord moet vinden. Ontbreekt er een
+          waarde, dan staat er waarom.
+        </p>
+        <div id="groepen"></div>
+      </section>
+
+      <section class="paneel" aria-labelledby="tabel-titel">
+        <h2 id="tabel-titel" class="paneel-titel">Alle waarden als tabel</h2>
+        <details id="tabel-details">
+          <summary>Tabelweergave openen</summary>
+          <div class="tabel-omhulsel" id="tabel"></div>
+        </details>
+      </section>
+    </main>
+
+    <footer class="voet">
+      <div class="omhulsel">
+        <p>
+          Weerdata van <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a>, gebruikt onder
+          <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>. De modellen zelf komen van
+          ECMWF, KNMI, DWD, NOAA, Météo-France, UK Met Office, DMI, CMC, JMA, KMA, CMA en BOM.
+        </p>
+        <p class="voet-klein">
+          Alle gegevens blijven op dit apparaat: de app heeft geen server, geen account en geen tracking.
+        </p>
+      </div>
+    </footer>
+
+    <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

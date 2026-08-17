@@ -1,0 +1,17 @@
+{
+  "name": "Weer op locatie — Meerssen",
+  "short_name": "Weer 28 aug",
+  "description": "Alle weermodellen naast elkaar voor één dag, met uitleg per model.",
+  "lang": "nl",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d0d0d",
+  "theme_color": "#14243d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

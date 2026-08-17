@@ -1,0 +1,787 @@
+/* Weer op locatie — opmaak.
+   Eén set kleurrollen, in licht en donker apart gekozen (niet automatisch
+   omgeklapt). De grafiekkleuren zijn gevalideerd op onderscheidbaarheid bij
+   kleurenblindheid; vorm en tekst dragen de identiteit mee, dus kleur is nooit
+   het enige signaal. */
+
+:root {
+  color-scheme: light;
+
+  --plane: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-1: #0b0b0b;
+  --text-2: #52514e;
+  --muted: #898781;
+  --raster: #e1e0d9;
+  --as: #c3c2b7;
+  --rand: rgba(11, 11, 11, 0.1);
+  --wash: rgba(11, 11, 11, 0.04);
+
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+
+  --ruimte: 1rem;
+  --radius: 12px;
+  --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+    --plane: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-1: #ffffff;
+    --text-2: #c3c2b7;
+    --muted: #898781;
+    --raster: #2c2c2a;
+    --as: #383835;
+    --rand: rgba(255, 255, 255, 0.1);
+    --wash: rgba(255, 255, 255, 0.05);
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --plane: #0d0d0d;
+  --surface-1: #1a1a19;
+  --text-1: #ffffff;
+  --text-2: #c3c2b7;
+  --muted: #898781;
+  --raster: #2c2c2a;
+  --as: #383835;
+  --rand: rgba(255, 255, 255, 0.1);
+  --wash: rgba(255, 255, 255, 0.05);
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--plane);
+  color: var(--text-1);
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0;
+}
+
+a {
+  color: var(--text-1);
+  text-decoration-color: var(--as);
+  text-underline-offset: 2px;
+}
+
+.omhulsel {
+  width: min(100% - 2rem, 980px);
+  margin-inline: auto;
+}
+
+.overslaan {
+  position: absolute;
+  left: -9999px;
+}
+.overslaan:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 20;
+  background: var(--surface-1);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--rand);
+}
+
+/* ------------------------------------------------------------------ kop */
+
+.kop {
+  border-bottom: 1px solid var(--rand);
+  background: var(--surface-1);
+  padding: 1.25rem 0 1rem;
+}
+
+.kop-binnen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.kop-plaats {
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.kop h1 {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  margin: 0.15rem 0 0.2rem;
+}
+
+.kop-aftellen {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 0.95rem;
+}
+
+.kop-acties {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.knop {
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-1);
+  background: var(--surface-1);
+  border: 1px solid var(--as);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  min-height: 44px;
+}
+.knop:hover {
+  background: var(--wash);
+}
+.knop:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.kop-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.kop-status.is-fout {
+  color: var(--critical);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- panelen */
+
+main {
+  padding: 1.25rem 0 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.paneel {
+  background: var(--surface-1);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+}
+
+.paneel-titel {
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+.paneel-titel.groot {
+  font-size: 1.3rem;
+  margin-top: 0.5rem;
+}
+
+.paneel-uitleg {
+  margin: 0 0 0.9rem;
+  color: var(--text-2);
+  font-size: 0.92rem;
+  max-width: 62ch;
+}
+
+.leeg {
+  color: var(--text-2);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.melding {
+  background: var(--surface-1);
+  border: 1px solid var(--rand);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+.melding p {
+  margin: 0;
+  max-width: 70ch;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--wash);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------- consensus */
+
+.oordeel {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  background: var(--wash);
+  margin-bottom: 1rem;
+}
+.oordeel p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.oordeel-icoon {
+  font-size: 1.1rem;
+  line-height: 1.4;
+  font-weight: 700;
+}
+.oordeel-good {
+  border-left: 4px solid var(--good);
+}
+.oordeel-good .oordeel-icoon {
+  color: var(--good);
+}
+.oordeel-warning {
+  border-left: 4px solid var(--warning);
+}
+.oordeel-warning .oordeel-icoon {
+  color: var(--warning);
+}
+.oordeel-serious {
+  border-left: 4px solid var(--serious);
+}
+.oordeel-serious .oordeel-icoon {
+  color: var(--serious);
+}
+
+.tegels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 720px) {
+  .tegels {
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  }
+}
+
+.tegel {
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+}
+.tegel-held {
+  grid-column: span 2;
+}
+@media (min-width: 720px) {
+  .tegel-held {
+    grid-column: span 1;
+  }
+}
+.tegel-label {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+}
+.held {
+  margin: 0.2rem 0 0.15rem;
+  font-size: clamp(2.4rem, 9vw, 3.2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.tegel-waarde {
+  margin: 0.2rem 0 0.15rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.tegel-onder {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.dekking {
+  margin: 0.9rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+/* -------------------------------------------------------------- legenda */
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-2);
+}
+.legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.legenda-vorm {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.legenda-vorm.serie-1 {
+  fill: var(--serie-1);
+}
+.legenda-vorm.serie-2 {
+  fill: var(--serie-2);
+}
+.legenda-vorm.serie-3 {
+  fill: var(--serie-3);
+}
+
+/* -------------------------------------------------------------- grafiek */
+
+.wolk-blok + .wolk-blok {
+  margin-top: 1.4rem;
+}
+.wolk-titel {
+  font-size: 0.95rem;
+  margin-bottom: 0.2rem;
+}
+svg.wolk,
+svg.uren {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.raster {
+  stroke: var(--raster);
+  stroke-width: 1;
+}
+.as {
+  stroke: var(--as);
+  stroke-width: 1;
+}
+.band {
+  fill: var(--raster);
+  opacity: 0.55;
+}
+.mediaan {
+  stroke: var(--text-2);
+  stroke-width: 2;
+}
+.mediaan-label,
+.svg-titel {
+  fill: var(--text-2);
+  font-size: 11px;
+  font-family: var(--sans);
+}
+.svg-titel {
+  font-weight: 600;
+}
+.tick {
+  fill: var(--muted);
+  font-size: 10.5px;
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+.stip {
+  cursor: default;
+}
+.stip:hover circle,
+.stip:hover rect {
+  stroke: var(--text-1);
+}
+.wolk-uitleg {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.lijn {
+  fill: none;
+  stroke: var(--serie-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.vlak {
+  fill: var(--serie-1);
+  opacity: 0.1;
+}
+.uurpunt circle {
+  fill: var(--serie-1);
+}
+.staaf path {
+  fill: var(--serie-1);
+}
+.staaf:hover path {
+  fill: var(--text-1);
+}
+
+svg.trend {
+  width: 132px;
+  height: 34px;
+  flex: none;
+}
+.trend-lijn {
+  fill: none;
+  stroke: var(--as);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.trend-punt {
+  fill: var(--serie-1);
+  stroke: var(--surface-1);
+  stroke-width: 2;
+}
+
+.trend-rij {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--rand);
+}
+.trend-rij:last-child {
+  border-bottom: 0;
+}
+.trend-waarde {
+  margin: 0.1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.trend-sinds {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* --------------------------------------------------------------- groepen */
+
+.groep {
+  margin-bottom: 1.75rem;
+}
+.groep-kop h3 {
+  font-size: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.groep-telling {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+  border: 1px solid var(--rand);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
+.groep-kop p {
+  margin: 0.3rem 0 0.9rem;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  max-width: 68ch;
+}
+
+.kaarten {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+  /* Kaarten niet oprekken naar de hoogste in de rij: dat geeft grote gaten in
+     kaarten van modellen die (nog) geen waarden hebben. */
+  align-items: start;
+}
+@media (min-width: 760px) {
+  .kaarten {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.kaart {
+  background: var(--surface-1);
+  border: 1px solid var(--rand);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.kaart[data-status='buiten_bereik'],
+.kaart[data-status='geen_dekking'],
+.kaart[data-status='fout'] {
+  background: transparent;
+}
+
+.kaart-kop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.55rem;
+  align-items: flex-start;
+}
+.kaart-titel {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.vlag {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+.kaart-titel h3 {
+  font-size: 1rem;
+}
+.kaart-meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.kaart-kop .chip {
+  margin-left: auto;
+  margin-top: 0.1rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-self: start;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-2);
+  border: 1px solid var(--rand);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  margin-top: 0.3rem;
+}
+.chip span {
+  font-size: 0.8em;
+}
+.chip-good span {
+  color: var(--good);
+}
+.chip-warning span {
+  color: var(--warning);
+}
+.chip-serious span {
+  color: var(--serious);
+}
+.chip-critical span {
+  color: var(--critical);
+}
+
+.merken {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+}
+.merk {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+  background: var(--wash);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+
+.waarden {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+}
+.waarden > div {
+  min-width: 0;
+}
+.waarden dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.waarden dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+.waarden .bij {
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  display: block;
+}
+.weer-icoon {
+  font-size: 1.05rem;
+}
+
+.statusuitleg {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+.model-trend {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.waarom {
+  border-top: 1px solid var(--rand);
+  padding-top: 0.6rem;
+  margin-top: auto;
+}
+.waarom p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+.letop {
+  margin-top: 0.45rem !important;
+}
+.letop strong {
+  color: var(--text-1);
+}
+
+.uurdetail summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0;
+  min-height: 34px;
+}
+.uurdetail[open] summary {
+  margin-bottom: 0.3rem;
+}
+
+/* ----------------------------------------------------------------- tabel */
+
+#tabel-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-height: 34px;
+}
+.tabel-omhulsel {
+  overflow-x: auto;
+  margin-top: 0.8rem;
+}
+.tabel {
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  min-width: 760px;
+}
+.tabel caption {
+  text-align: left;
+  color: var(--text-2);
+  font-size: 0.82rem;
+  padding-bottom: 0.5rem;
+}
+.tabel th,
+.tabel td {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--rand);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tabel thead th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--as);
+}
+.tabel tbody th {
+  font-weight: 600;
+  white-space: normal;
+  min-width: 190px;
+}
+.tabel-leeg {
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ voet */
+
+.voet {
+  border-top: 1px solid var(--rand);
+  padding: 1.25rem 0 2rem;
+  color: var(--text-2);
+  font-size: 0.85rem;
+}
+.voet p {
+  margin: 0 0 0.4rem;
+  max-width: 72ch;
+}
+.voet-klein {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* --------------------------------------------------------------- tooltip */
+
+.tip {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  background: var(--text-1);
+  color: var(--surface-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  max-width: 260px;
+  left: 0;
+  top: 0;
+}
+.tip.zichtbaar {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    transition: none;
+  }
+}
+
+/* Bij gedwongen kleuren (Windows-contrastmodus) draagt vorm de identiteit. */
+@media (forced-colors: active) {
+  .kaart,
+  .paneel,
+  .tegel {
+    border: 1px solid CanvasText;
+  }
+}

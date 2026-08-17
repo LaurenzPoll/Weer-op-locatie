@@ -1,0 +1,21 @@
+name: Modelcontrole
+
+# Controleert of alle model-ids in js/models.js nog bestaan bij Open-Meteo en of
+# ze data leveren voor onze locatie. Handmatig te starten, en eens per week
+# automatisch — Open-Meteo hernoemt en vervangt af en toe een model.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+
+jobs:
+  controle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Modellen controleren
+        run: node scripts/check-models.mjs
