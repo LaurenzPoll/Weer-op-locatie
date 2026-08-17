@@ -777,6 +777,61 @@ svg.trend {
   }
 }
 
+/* Afdrukken en opslaan als PDF: de pagina wordt zo ook gedeeld, dus kaarten en
+   panelen mogen niet middenin over een paginagrens worden afgebroken. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .overslaan,
+  .kop-acties,
+  .tip {
+    display: none !important;
+  }
+
+  .kop {
+    border-bottom: 0;
+    padding-top: 0;
+  }
+
+  main {
+    gap: 0.8rem;
+  }
+
+  .paneel,
+  .kaart,
+  .tegel,
+  .wolk-blok,
+  .trend-rij,
+  .groep-kop,
+  .oordeel {
+    break-inside: avoid;
+  }
+
+  .groep-kop,
+  .wolk-titel,
+  .paneel-titel,
+  .kaart-kop {
+    break-after: avoid;
+  }
+
+  /* Kleurvlakken en stippen moeten ook op papier zichtbaar blijven. */
+  .band,
+  .vlak,
+  .staaf path,
+  .stip circle,
+  .stip rect,
+  .legenda-vorm {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* Bij gedwongen kleuren (Windows-contrastmodus) draagt vorm de identiteit. */
 @media (forced-colors: active) {
   .kaart,
