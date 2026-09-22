@@ -141,10 +141,8 @@ a {
   margin: 0.15rem 0 0.2rem;
 }
 
-.kop-aftellen {
-  margin: 0;
-  color: var(--text-2);
-  font-size: 0.95rem;
+.dagschakelaar {
+  margin: 0.35rem 0 0;
 }
 
 .kop-acties {
@@ -219,18 +217,6 @@ main {
   color: var(--text-2);
   margin: 0;
   font-size: 0.95rem;
-}
-
-.melding {
-  background: var(--surface-1);
-  border: 1px solid var(--rand);
-  border-left: 4px solid var(--warning);
-  border-radius: var(--radius);
-  padding: 0.9rem 1rem;
-}
-.melding p {
-  margin: 0;
-  max-width: 70ch;
 }
 
 code {
@@ -1092,6 +1078,7 @@ svg.trend {
 
   .overslaan,
   .kop-acties,
+  .dagschakelaar,
   .tip {
     display: none !important;
   }

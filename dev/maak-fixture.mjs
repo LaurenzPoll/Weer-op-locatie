@@ -11,6 +11,8 @@ import { writeFileSync } from 'node:fs';
 import { MODELLEN } from '../js/models.js';
 
 const START = '2026-08-17';
+// De app schuift de tijdas in de mockmodus zo op dat deze dag op vandaag valt,
+// en de dag erna dus op morgen.
 const DOEL = '2026-08-28';
 
 function datums(n) {
@@ -53,7 +55,7 @@ const BIJZONDER = {
   bom_access_global: { fout: 'Cannot initialize WeatherVariableDaily from invalid String value' }
 };
 
-const fixture = {};
+const fixture = { __doel: DOEL };
 
 for (const m of MODELLEN) {
   const bijz = BIJZONDER[m.id] ?? {};
@@ -105,8 +107,8 @@ for (const m of MODELLEN) {
     push('sunshine_duration', Math.round((3 + rnd() * 8) * 3600));
   });
 
-  // Uurwaarden alleen voor de doeldag: dat is het enige wat de app uitleest en
-  // het houdt de fixture klein.
+  // Uurwaarden alleen voor de doeldag en de dag erna (vandaag en morgen): dat is
+  // het enige wat de app uitleest en het houdt de fixture klein.
   const hourly = {
     time: [],
     temperature_2m: [],
@@ -116,10 +118,11 @@ for (const m of MODELLEN) {
     sunshine_duration: [],
     weather_code: []
   };
-  if (doelIndex !== -1 && !bijz.leeg && doelIndex < dagenMetData) {
+  for (const dagIndex of [doelIndex, doelIndex + 1]) {
+    if (doelIndex === -1 || bijz.leeg || dagIndex >= dagenMetData) continue;
     for (let u = 0; u < 24; u++) {
       const dagbocht = Math.sin(((u - 4) / 24) * Math.PI * 2);
-      hourly.time.push(`${DOEL}T${String(u).padStart(2, '0')}:00`);
+      hourly.time.push(`${dagen[dagIndex]}T${String(u).padStart(2, '0')}:00`);
       hourly.temperature_2m.push(Number((basisTemp - 4 + dagbocht * 5).toFixed(1)));
       hourly.precipitation.push(u > 12 && u < 19 && basisNeerslag > 1 ? Number((basisNeerslag / 5).toFixed(1)) : 0);
       hourly.wind_speed_10m.push(Number((10 + rnd() * 14).toFixed(1)));
@@ -137,7 +140,7 @@ for (const m of MODELLEN) {
 
   fixture[m.id] = {
     latitude: 50.89,
-    longitude: 5.75,
+    longitude: 5.98,
     timezone: 'Europe/Amsterdam',
     daily_units: { temperature_2m_max: '°C', precipitation_sum: 'mm', wind_speed_10m_max: 'km/h' },
     daily,

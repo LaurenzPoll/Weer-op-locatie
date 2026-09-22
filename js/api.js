@@ -10,9 +10,11 @@ import {
   API_BASE,
   CACHE_KEY,
   CACHE_TTL_MS,
+  DAGKEUZES,
   FORECAST_DAYS,
   LOCATION,
-  TARGET_DATE
+  TARGET_DATE,
+  datumVoor
 } from './config.js';
 import { MODELLEN } from './models.js';
 
@@ -74,6 +76,14 @@ export function bouwUrl(modelId, { kern = false } = {}) {
 const mockAan = typeof location !== 'undefined' && new URLSearchParams(location.search).has('mock');
 let mockData = null;
 
+// De fixture is gemaakt rond één vaste doeldag. We schuiven zijn tijdas zo op
+// dat die doeldag op vandaag valt; dan heeft de mockmodus altijd iets te tonen.
+function verschuifDatum(iso, dagen) {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dagen);
+  return d.toISOString().slice(0, 10) + iso.slice(10);
+}
+
 async function haalMock(modelId) {
   if (!mockData) {
     const res = await fetch('./dev/fixture.json');
@@ -83,7 +93,15 @@ async function haalMock(modelId) {
   const entry = mockData[modelId];
   if (!entry) throw new Error('geen mockdata voor dit model');
   if (entry.__fout) throw new Error(entry.__fout);
-  return entry;
+  const verschil = Math.round(
+    (new Date(`${datumVoor('vandaag')}T12:00:00Z`) - new Date(`${mockData.__doel}T12:00:00Z`)) / 86400000
+  );
+  const schuif = (tijden) => (tijden ?? []).map((t) => verschuifDatum(t, verschil));
+  return {
+    ...entry,
+    daily: { ...entry.daily, time: schuif(entry.daily?.time) },
+    hourly: { ...entry.hourly, time: schuif(entry.hourly?.time) }
+  };
 }
 
 async function haalOp(url) {
@@ -119,9 +137,9 @@ function getal(reeks, i) {
   return reeks[i];
 }
 
-export function normaliseer(modelId, ruw) {
+export function normaliseer(modelId, ruw, datum = TARGET_DATE) {
   const dagen = ruw?.daily?.time ?? [];
-  const i = dagen.indexOf(TARGET_DATE);
+  const i = dagen.indexOf(datum);
   const d = ruw?.daily ?? {};
 
   // Open-Meteo geeft áltijd het volledige aantal opgevraagde dagen terug en vult
@@ -169,7 +187,7 @@ export function normaliseer(modelId, ruw) {
   const uren = [];
   const uurTijden = ruw?.hourly?.time ?? [];
   for (let u = 0; u < uurTijden.length; u++) {
-    if (!uurTijden[u].startsWith(TARGET_DATE)) continue;
+    if (!uurTijden[u].startsWith(datum)) continue;
     uren.push({
       tijd: uurTijden[u],
       uur: Number(uurTijden[u].slice(11, 13)),
@@ -187,13 +205,15 @@ export function normaliseer(modelId, ruw) {
 }
 
 // --- cache ----------------------------------------------------------------
+// Eén ophaal levert alle 16 dagen, dus we verwerken hem meteen voor vandaag én
+// morgen en bewaren beide. Wisselen tussen de dagen kost dan geen nieuw verzoek.
 
 function leesCache() {
   try {
     const ruw = localStorage.getItem(CACHE_KEY);
     if (!ruw) return null;
     const cache = JSON.parse(ruw);
-    if (cache.datum !== TARGET_DATE) return null;
+    if (!cache.perDag?.[TARGET_DATE]) return null;
     if (cache.locatie !== `${LOCATION.latitude},${LOCATION.longitude}`) return null;
     return cache;
   } catch {
@@ -201,15 +221,14 @@ function leesCache() {
   }
 }
 
-function schrijfCache(resultaten, opgehaaldOp) {
+function schrijfCache(perDag, opgehaaldOp) {
   try {
     localStorage.setItem(
       CACHE_KEY,
       JSON.stringify({
-        datum: TARGET_DATE,
         locatie: `${LOCATION.latitude},${LOCATION.longitude}`,
         opgehaaldOp,
-        resultaten
+        perDag
       })
     );
   } catch {
@@ -222,27 +241,32 @@ export function cacheIsVers(cache) {
 }
 
 /**
- * Haalt alle modellen op (parallel) en levert een lijst genormaliseerde
- * resultaten, in de volgorde van de catalogus.
+ * Haalt alle modellen op (parallel) en levert per dag (vandaag en morgen) een
+ * lijst genormaliseerde resultaten, in de volgorde van de catalogus.
  */
 export async function haalAlles() {
   const uitkomsten = await Promise.allSettled(MODELLEN.map((m) => haalModel(m.id)));
 
-  const resultaten = uitkomsten.map((uitkomst, idx) => {
-    const id = MODELLEN[idx].id;
-    if (uitkomst.status === 'fulfilled') {
-      try {
-        return normaliseer(id, uitkomst.value);
-      } catch (fout) {
-        return { id, status: 'fout', melding: `antwoord onverwerkbaar: ${fout.message}` };
+  const verwerk = (datum) =>
+    uitkomsten.map((uitkomst, idx) => {
+      const id = MODELLEN[idx].id;
+      if (uitkomst.status === 'fulfilled') {
+        try {
+          return normaliseer(id, uitkomst.value, datum);
+        } catch (fout) {
+          return { id, status: 'fout', melding: `antwoord onverwerkbaar: ${fout.message}` };
+        }
       }
-    }
-    return { id, status: 'fout', melding: uitkomst.reason?.message ?? 'ophalen mislukt' };
-  });
+      return { id, status: 'fout', melding: uitkomst.reason?.message ?? 'ophalen mislukt' };
+    });
+
+  // De gekozen dag hoort er altijd bij, ook als middernacht net gepasseerd is.
+  const datums = new Set([...DAGKEUZES.map((k) => datumVoor(k)), TARGET_DATE]);
+  const perDag = Object.fromEntries([...datums].map((d) => [d, verwerk(d)]));
 
   const opgehaaldOp = new Date().toISOString();
-  schrijfCache(resultaten, opgehaaldOp);
-  return { resultaten, opgehaaldOp, uitCache: false };
+  schrijfCache(perDag, opgehaaldOp);
+  return { resultaten: perDag[TARGET_DATE], perDag, opgehaaldOp, uitCache: false };
 }
 
 /**
@@ -251,14 +275,16 @@ export async function haalAlles() {
 export async function laadVerwachtingen({ forceer = false } = {}) {
   const cache = leesCache();
   if (!forceer && cacheIsVers(cache)) {
-    return { resultaten: cache.resultaten, opgehaaldOp: cache.opgehaaldOp, uitCache: true };
+    return { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp, uitCache: true };
   }
   try {
     return await haalAlles();
   } catch (fout) {
     // Netwerk helemaal onbereikbaar: liever oude data met een eerlijk label dan
     // een lege pagina.
-    if (cache) return { resultaten: cache.resultaten, opgehaaldOp: cache.opgehaaldOp, uitCache: true, offline: true };
+    if (cache) {
+      return { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp, uitCache: true, offline: true };
+    }
     throw fout;
   }
 }

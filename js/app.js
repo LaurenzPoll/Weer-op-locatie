@@ -1,7 +1,7 @@
 // Opbouw van de pagina. Haalt de verwachtingen op, rekent de spreiding uit en
 // zet alles op het scherm.
 
-import { LOCATION, TARGET_DATE, VENSTER } from './config.js';
+import { DAG, DAGKEUZES, LOCATION, TARGET_DATE, VENSTER, datumVoor, kiesDag } from './config.js';
 import { GROEPEN, MODELLEN, kortNaam } from './models.js';
 import { laadVerwachtingen } from './api.js';
 import { mediaan, samenvatting } from './stats.js';
@@ -29,45 +29,16 @@ const STATUS_ORDE = { ok: 0, buiten_bereik: 1, geen_dekking: 2, fout: 3 };
 function vulKop() {
   el('plaats').textContent = `${LOCATION.naam}, ${LOCATION.regio}`;
   el('datum').textContent = f.langeDatum(TARGET_DATE);
-
-  const dagen = f.dagenTot(TARGET_DATE);
-  const aftellen =
-    dagen > 1
-      ? `nog ${dagen} dagen`
-      : dagen === 1
-        ? 'morgen'
-        : dagen === 0
-          ? 'vandaag'
-          : `${Math.abs(dagen)} ${Math.abs(dagen) === 1 ? 'dag' : 'dagen'} geleden`;
-  el('aftellen').textContent = aftellen;
-  document.title = `${f.langeDatum(TARGET_DATE)} in ${LOCATION.naam} — Weer op locatie`;
+  el('dag-knoppen')
+    .querySelectorAll('button')
+    .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dag === DAG)));
+  document.title = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam} — Weer op locatie`;
 }
 
 function zetStatus(tekst, isFout = false) {
   const p = el('ophaalstatus');
   p.textContent = tekst;
   p.classList.toggle('is-fout', isFout);
-}
-
-function toonVenstermelding(soort, dagen) {
-  const doos = el('venstermelding');
-  doos.hidden = false;
-  doos.className = 'melding';
-  if (soort === 'voorbij') {
-    doos.innerHTML = `<p><strong>Deze dag is voorbij.</strong> De weermodellen kijken alleen vooruit, dus er is niets
-      meer op te halen. Wil je een andere dag volgen? Pas <code>TARGET_DATE</code> in <code>js/config.js</code> aan —
-      dat is één regel.</p>`;
-  } else {
-    doos.innerHTML = `<p><strong>Nog te ver weg.</strong> Deze dag is over ${dagen} dagen, en de modellen reiken maximaal
-      16 dagen vooruit. Vanaf ${esc(f.korteDatum(nDagenTerug(TARGET_DATE, 15)))} komen de eerste verwachtingen binnen.</p>`;
-  }
-  ['consensus', 'spreiding', 'modellen'].forEach((id) => el(id)?.setAttribute('hidden', ''));
-}
-
-function nDagenTerug(iso, n) {
-  const d = new Date(`${iso}T12:00:00`);
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
 }
 
 // ------------------------------------------------------------------ consensus
@@ -663,6 +634,9 @@ function renderRooster(resultaten) {
 // -------------------------------------------------------------------- tekenen
 
 let laatsteResultaten = [];
+// Elke laadronde krijgt een volgnummer. Wissel je van dag terwijl er nog een
+// ophaal loopt, dan mag dat oudere antwoord de nieuwe dag niet overschrijven.
+let laadBeurt = 0;
 
 function render(resultaten, meta) {
   const sam = samenvatting(resultaten);
@@ -688,20 +662,39 @@ function render(resultaten, meta) {
 }
 
 async function laad({ forceer = false } = {}) {
+  const beurt = ++laadBeurt;
   const knop = el('verversen');
   knop.disabled = true;
   zetStatus('verwachtingen ophalen…');
   try {
-    const { resultaten, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
-    const historie = uitCache ? leesHistorie() : bewaarMeting(resultaten);
-    render(resultaten, { opgehaaldOp, uitCache, offline, historie });
+    const { resultaten, perDag, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
+    // Een verse ophaal bevat vandaag én morgen; beide gaan de trend in, welke
+    // dag je ook bekijkt.
+    if (!uitCache) Object.entries(perDag).forEach(([datum, res]) => bewaarMeting(res, datum));
+    if (beurt !== laadBeurt) return;
+    render(resultaten, { opgehaaldOp, uitCache, offline, historie: leesHistorie() });
   } catch (fout) {
+    if (beurt !== laadBeurt) return;
     zetStatus(`ophalen mislukt: ${fout.message}`, true);
     el('consensus-inhoud').innerHTML = `<p class="leeg">Geen verbinding met Open-Meteo, en er staat nog niets in de
       lokale cache. Controleer je internetverbinding en probeer Verversen.</p>`;
   } finally {
-    knop.disabled = false;
+    if (beurt === laadBeurt) knop.disabled = false;
   }
+}
+
+function wisselDag(keuze) {
+  kiesDag(keuze);
+  // De keuze in de URL, zodat een gedeelde link of herladen op dezelfde dag opent.
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set('dag', DAG);
+    history.replaceState(null, '', url);
+  } catch {
+    // Geen URL bijwerken is geen reden om niet te wisselen.
+  }
+  vulKop();
+  laad();
 }
 
 // -------------------------------------------------------------------- tooltip
@@ -763,17 +756,18 @@ function start() {
     renderRooster(laatsteResultaten);
   });
 
-  const dagen = f.dagenTot(TARGET_DATE);
-  if (dagen < 0) {
-    toonVenstermelding('voorbij');
-    zetStatus('');
-    return;
-  }
-  if (dagen > 15) {
-    toonVenstermelding('tever', dagen);
-    zetStatus('');
-    return;
-  }
+  el('dag-knoppen').addEventListener('click', (e) => {
+    const knop = e.target.closest('button[data-dag]');
+    if (!knop || !DAGKEUZES.includes(knop.dataset.dag) || knop.dataset.dag === DAG) return;
+    wisselDag(knop.dataset.dag);
+  });
+
+  // Staat de pagina over middernacht open, dan schuift 'vandaag' mee zodra je
+  // er weer naar kijkt.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && datumVoor(DAG) !== TARGET_DATE) wisselDag(DAG);
+  });
+
   laad();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

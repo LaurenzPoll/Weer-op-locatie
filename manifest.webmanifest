@@ -1,7 +1,7 @@
 {
-  "name": "Weer op locatie — Meerssen",
-  "short_name": "Weer 28 aug",
-  "description": "Alle weermodellen naast elkaar voor één dag, met uitleg per model.",
+  "name": "Weer op locatie — Heerlen",
+  "short_name": "Weer Heerlen",
+  "description": "Alle weermodellen naast elkaar voor vandaag of morgen, met uitleg per model.",
   "lang": "nl",
   "start_url": ".",
   "scope": ".",
