@@ -8,6 +8,7 @@
 // rasterlijnen als haarlijn in een terugtredend grijs.
 
 import { GROEPEN } from './models.js';
+import { icoon } from './iconen.js';
 
 const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -76,7 +77,8 @@ export function puntenWolk({ paren, modellen, verdeling, formatter, label, breed
   const ondergrens = minimumNul ? Math.max(0, verdeling.min - marge) : verdeling.min - marge;
   // Meer ijkpunten betekent een fijnere stap, en dus een as die strakker om de
   // waarden heen sluit in plaats van af te ronden op veelvouden van twee.
-  const { punten: ticks, start, eind } = nettePunten(ondergrens, verdeling.max + marge, 6);
+  // Op een smal scherm minder ijkpunten, anders lopen de labels in elkaar.
+  const { punten: ticks, start, eind } = nettePunten(ondergrens, verdeling.max + marge, breedte < 420 ? 4 : 6);
   const x = (v) => padLinks + ((v - start) / (eind - start || 1)) * plotBreedte;
 
   const rijen = verdeelInRijen(paren, x, 19);
@@ -237,7 +239,7 @@ export function uurGrafiek(uren, { breedte = 760 } = {}) {
   <polyline class="lijn" points="${lijn}"/>
   ${punten}
   <text class="svg-titel" x="${padLinks}" y="${neerslagTop - 8}">${
-    heeftNeerslag ? `Neerslag per uur — tot ${nMax} mm` : 'Neerslag per uur — dit model houdt het droog'
+    heeftNeerslag ? `Neerslag per uur — tot ${nMax} mm` : 'Neerslag per uur — droog'
   }</text>
   <line class="as" x1="${padLinks}" y1="${neerslagTop + neerslagHoogte}" x2="${breedte - padRechts}" y2="${
     neerslagTop + neerslagHoogte
@@ -262,35 +264,6 @@ export function trendLijn(punten, { breedte = 132, hoogte = 34 } = {}) {
   <circle class="trend-punt" cx="${x(punten.length - 1).toFixed(1)}" cy="${y(laatste.waarde).toFixed(1)}" r="4"/>
 </svg>`;
 }
-
-/* Weericoontjes voor de zonweergave. Klein getekend en met vlakken in plaats van
-   dunne lijnen, zodat ze op 18 px nog leesbaar zijn. */
-const ICONEN = {
-  zon: `<svg class="ic ic-zon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="4.6"/>
-      <g class="stralen">
-        <path d="M12 2.4v2.6M12 19v2.6M2.4 12h2.6M19 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9"/>
-      </g>
-    </svg>`,
-  halfzon: `<svg class="ic ic-halfzon" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="8.6" cy="7.6" r="3.3"/>
-      <g class="stralen">
-        <path d="M8.6 1.6v1.8M2.6 7.6h1.8M4.1 3.1l1.3 1.3M13.1 3.1l-1.3 1.3"/>
-      </g>
-      <g class="wolk">
-        <circle cx="12.4" cy="15.4" r="3.2"/>
-        <circle cx="16.4" cy="14.6" r="3.9"/>
-        <rect x="9.3" y="16" width="10.8" height="4.3" rx="2.15"/>
-      </g>
-    </svg>`,
-  wolk: `<svg class="ic ic-wolk" viewBox="0 0 24 24" aria-hidden="true">
-      <g class="wolk">
-        <circle cx="9.4" cy="12.6" r="3.7"/>
-        <circle cx="14.4" cy="11.6" r="4.5"/>
-        <rect x="5.7" y="13.4" width="12.9" height="4.9" rx="2.45"/>
-      </g>
-    </svg>`
-};
 
 /**
  * Rooster van modellen tegen uren: elke rij een model, elke kolom een uur uit
@@ -319,7 +292,7 @@ export function uurRooster({ rijen, uren, meting }) {
     const gedeeld = `data-tip="${esc(tekst)}" title="${esc(tekst)}"`;
     const verborgen = `<span class="enkel-lezer">${esc(c.omschrijving)}</span>`;
     if (c.soort === 'leeg') return `<td class="cel-nul" ${gedeeld}>${verborgen}</td>`;
-    if (c.soort === 'icoon') return `<td class="cel-icoon" ${gedeeld}>${ICONEN[c.icoon]}${verborgen}</td>`;
+    if (c.soort === 'icoon') return `<td class="cel-icoon" ${gedeeld}>${icoon(c.icoon)}${verborgen}</td>`;
     return `<td data-stap="${c.stap}" ${gedeeld}>${verborgen}</td>`;
   };
 
@@ -352,7 +325,7 @@ export function uurRooster({ rijen, uren, meting }) {
     l.soort === 'iconen'
       ? `<div class="rooster-legenda">
           ${l.items
-            .map((i) => `<span class="legenda-item">${ICONEN[i.icoon]} ${esc(i.label)}</span>`)
+            .map((i) => `<span class="legenda-item">${icoon(i.icoon)} ${esc(i.label)}</span>`)
             .join('')}
         </div>`
       : `<div class="rooster-legenda">

@@ -8,6 +8,7 @@ import { mediaan, samenvatting } from './stats.js';
 import { puntenWolk, trendLijn, uurGrafiek, uurRooster } from './charts.js';
 import * as f from './format.js';
 import { weercode, windstreek } from './weercodes.js';
+import { icoon, icoonVoorCode } from './iconen.js';
 import { bewaarMeting, leesHistorie, modelVerschuiving, trendPunten, verschuiving } from './history.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
@@ -16,10 +17,10 @@ const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const STATUSSEN = {
-  ok: { label: 'actueel', kleur: 'good', icoon: '●' },
-  buiten_bereik: { label: 'haalt deze dag nog niet', kleur: 'warning', icoon: '◔' },
-  geen_dekking: { label: 'geen dekking op deze plek', kleur: 'serious', icoon: '○' },
-  fout: { label: 'ophalen mislukt', kleur: 'critical', icoon: '!' }
+  ok: { label: 'actueel', kort: 'actueel', kleur: 'good', icoon: '●' },
+  buiten_bereik: { label: 'haalt deze dag nog niet', kort: 'reikt niet zo ver', kleur: 'warning', icoon: '◔' },
+  geen_dekking: { label: 'geen dekking op deze plek', kort: 'geen dekking', kleur: 'serious', icoon: '○' },
+  fout: { label: 'ophalen mislukt', kort: 'mislukt', kleur: 'critical', icoon: '!' }
 };
 
 const STATUS_ORDE = { ok: 0, buiten_bereik: 1, geen_dekking: 2, fout: 3 };
@@ -27,9 +28,12 @@ const STATUS_ORDE = { ok: 0, buiten_bereik: 1, geen_dekking: 2, fout: 3 };
 // ---------------------------------------------------------------- kop & meta
 
 function vulKop() {
-  el('plaats').textContent = `${LOCATION.naam}, ${LOCATION.regio}`;
+  el('plaats').textContent = LOCATION.naam;
+  el('regio').textContent = LOCATION.regio;
   el('datum').textContent = f.langeDatum(TARGET_DATE);
-  el('dag-knoppen')
+  const knoppen = el('dag-knoppen');
+  knoppen.style.setProperty('--i', String(DAGKEUZES.indexOf(DAG)));
+  knoppen
     .querySelectorAll('button')
     .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dag === DAG)));
   document.title = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam} — Weer op locatie`;
@@ -42,54 +46,114 @@ function zetStatus(tekst, isFout = false) {
 }
 
 // ------------------------------------------------------------------ consensus
+// De bovenste kaart is de lucht zelf: zijn kleur volgt het weerbeeld waar de
+// meeste modellen op uitkomen, en de strip eronder laat zien hoe dicht de
+// modellen bij elkaar zitten. Dat is de vraag waar deze app om draait.
 
-function consensusHtml(sam) {
+const LUCHT_TEKST = {
+  zon: 'Zonnig',
+  halfzon: 'Half bewolkt',
+  wolk: 'Bewolkt',
+  mist: 'Nevelig',
+  regen: 'Regen',
+  bui: 'Buien',
+  sneeuw: 'Sneeuw',
+  onweer: 'Onweer'
+};
+
+/** Het weerbeeld dat de meeste modellen geven, met hoeveel dat er zijn. */
+function meesteWeerbeeld(resultaten) {
+  const tel = {};
+  for (const r of resultaten) {
+    if (r.status !== 'ok' || r.dag?.code === null || r.dag?.code === undefined) continue;
+    const naam = icoonVoorCode(r.dag.code);
+    tel[naam] = (tel[naam] ?? 0) + 1;
+  }
+  const [naam, aantal] = Object.entries(tel).sort((a, b) => b[1] - a[1])[0] ?? ['wolk', 0];
+  return { naam, aantal, totaal: Object.values(tel).reduce((a, b) => a + b, 0) };
+}
+
+/** Een stip per model op één temperatuuras, met de middelste helft als band. */
+function koorHtml(v) {
+  const lo = v.min;
+  const span = v.max - v.min || 1;
+  const pos = (x) => 5 + ((x - lo) / span) * 90;
+  // Stippen die elkaar zouden raken schuiven een rij omhoog, zodat je ze telt.
+  const rijen = [];
+  const stippen = [...v.paren]
+    .sort((a, b) => a.waarde - b.waarde)
+    .map((p) => {
+      const x = pos(p.waarde);
+      let rij = rijen.findIndex((laatste) => x - laatste >= 4.2);
+      if (rij === -1) rij = rijen.length < 3 ? rijen.push(x) - 1 : rijen.indexOf(Math.min(...rijen));
+      rijen[rij] = x;
+      const naam = modellenPerId[p.id]?.naam ?? p.id;
+      return `<i style="left:${x.toFixed(1)}%;--rij:${rij}" data-tip="${esc(`${naam}: ${f.temp(p.waarde)}`)}"></i>`;
+    })
+    .join('');
+  const bandL = pos(v.p25);
+  const bandB = Math.max(pos(v.p75) - bandL, 1.5);
+  const omschrijving = `Middagtemperatuur van ${v.aantal} modellen: van ${f.temp(v.min)} tot ${f.temp(
+    v.max
+  )}, mediaan ${f.temp(v.mediaan)}.`;
+  return `
+    <div class="koor">
+      <div class="koor-baan" role="img" aria-label="${esc(omschrijving)}">
+        <span class="koor-band" style="left:${bandL.toFixed(1)}%;width:${bandB.toFixed(1)}%"></span>
+        <span class="koor-med" style="left:${pos(v.mediaan).toFixed(1)}%"></span>
+        ${stippen}
+      </div>
+      <div class="koor-as" aria-hidden="true">
+        <span>${esc(f.graden(v.min))}°</span>
+        <span>elke stip een model · band is de middelste helft</span>
+        <span>${esc(f.graden(v.max))}°</span>
+      </div>
+    </div>`;
+}
+
+function consensusHtml(sam, resultaten) {
   if (!sam.oordeel) {
-    return `<p class="leeg">Nog te weinig modellen met een verwachting voor deze dag
-      (${sam.bruikbaar} van ${sam.totaal}). Zodra er meer aanhaken verschijnt hier de samenvatting.</p>`;
+    return `
+      <p class="lucht-eyebrow">Nog even geduld</p>
+      <p class="lucht-leeg">Nog te weinig modellen met een verwachting voor deze dag (${sam.bruikbaar} van
+        ${sam.totaal}). Zodra er meer aanhaken verschijnt hier de samenvatting.</p>`;
   }
 
   const t = sam.temp;
   const n = sam.neerslag;
   const natte = n.paren.filter((p) => p.waarde >= 1).length;
+  const beeld = meesteWeerbeeld(resultaten);
 
   const dekking =
-    `<p class="dekking"><strong>${sam.bruikbaar}</strong> van de ${sam.totaal} modellen ${
-      sam.bruikbaar === 1 ? 'heeft' : 'hebben'
-    } een verwachting voor deze dag` +
+    `${sam.bruikbaar} van de ${sam.totaal} modellen ${sam.bruikbaar === 1 ? 'heeft' : 'hebben'} een verwachting` +
     (sam.buitenBereik ? ` · ${sam.buitenBereik} reiken nog niet zo ver` : '') +
     (sam.geenDekking ? ` · ${sam.geenDekking} zonder dekking hier` : '') +
-    (sam.fout ? ` · ${sam.fout} niet op te halen` : '') +
-    `.</p>`;
+    (sam.fout ? ` · ${sam.fout} niet op te halen` : '');
 
   return `
+    <p class="lucht-eyebrow">Middag · mediaan van ${t.aantal} modellen</p>
+    <div class="lucht-hoofd">
+      <p class="lucht-temp"><span class="enkel-lezer">Mediane middagtemperatuur: ${esc(f.temp(t.mediaan))}</span><span
+        aria-hidden="true">${Math.round(t.mediaan)}<span class="graad">°</span></span></p>
+      <div class="lucht-beeld">
+        ${icoon(beeld.naam, 'lucht-icoon')}
+        <p><strong>${esc(LUCHT_TEKST[beeld.naam])}</strong><span>${beeld.aantal} van ${beeld.totaal} modellen</span></p>
+      </div>
+    </div>
+    ${koorHtml(t)}
+    <dl class="lucht-cijfers">
+      <div><dt>Nacht</dt><dd>${esc(f.temp(sam.tempMin?.mediaan))}</dd>
+        <dd class="bij">${sam.tempMin ? `${esc(f.graden(sam.tempMin.min))} – ${esc(f.graden(sam.tempMin.max))}°` : ''}</dd></div>
+      <div><dt>Neerslag</dt><dd>${esc(f.mm(n.mediaan))}</dd>
+        <dd class="bij">${natte} van ${n.aantal} boven 1 mm</dd></div>
+      <div><dt>Wind</dt><dd>${esc(f.kmh(sam.wind?.mediaan))}</dd>
+        <dd class="bij">${sam.wind ? `tot ${esc(f.kmh(sam.wind.max))}` : ''}</dd></div>
+    </dl>
     <div class="oordeel oordeel-${sam.oordeel.status}">
       <span class="oordeel-icoon" aria-hidden="true">${sam.oordeel.icoon}</span>
-      <p><strong>${esc(sam.oordeel.tekst)}</strong> — ${esc(sam.oordeel.reden)}.</p>
+      <p><strong>${esc(sam.oordeel.tekst)}</strong> ${esc(sam.oordeel.reden)}.</p>
     </div>
-    <div class="tegels">
-      <div class="tegel tegel-held">
-        <p class="tegel-label">Mediane middagtemperatuur</p>
-        <p class="held">${esc(f.temp(t.mediaan))}</p>
-        <p class="tegel-onder">laagste ${esc(f.temp(t.min))} · hoogste ${esc(f.temp(t.max))}</p>
-      </div>
-      <div class="tegel">
-        <p class="tegel-label">Mediane nachttemperatuur</p>
-        <p class="tegel-waarde">${esc(f.temp(sam.tempMin?.mediaan))}</p>
-        <p class="tegel-onder">${sam.tempMin ? `${esc(f.temp(sam.tempMin.min))} – ${esc(f.temp(sam.tempMin.max))}` : ''}</p>
-      </div>
-      <div class="tegel">
-        <p class="tegel-label">Mediane neerslag</p>
-        <p class="tegel-waarde">${esc(f.mm(n.mediaan))}</p>
-        <p class="tegel-onder">${natte} van ${n.aantal} modellen boven 1 mm · tot ${esc(f.mm(n.max))}</p>
-      </div>
-      <div class="tegel">
-        <p class="tegel-label">Mediane wind</p>
-        <p class="tegel-waarde">${esc(f.kmh(sam.wind?.mediaan))}</p>
-        <p class="tegel-onder">${sam.wind ? `${esc(f.kmh(sam.wind.min))} – ${esc(f.kmh(sam.wind.max))}` : ''}</p>
-      </div>
-    </div>
-    ${dekking}`;
+    <p class="lucht-dekking">${esc(dekking)}.</p>`;
 }
 
 // ------------------------------------------------------------------ spreiding
@@ -129,13 +193,14 @@ function legendaHtml(resultaten) {
   return { merken, uitleg };
 }
 
-function wolkenHtml(sam) {
+function wolkenHtml(sam, breedte) {
   const temp = puntenWolk({
     paren: sam.temp?.paren ?? [],
     verdeling: sam.temp,
     modellen: modellenPerId,
     formatter: (v) => f.temp(v),
-    label: 'Middagtemperatuur per model'
+    label: 'Middagtemperatuur per model',
+    breedte
   });
   const neerslag = puntenWolk({
     paren: sam.neerslag?.paren ?? [],
@@ -143,7 +208,8 @@ function wolkenHtml(sam) {
     modellen: modellenPerId,
     formatter: (v) => f.mm(v),
     label: 'Neerslag over de hele dag per model',
-    minimumNul: true
+    minimumNul: true,
+    breedte
   });
   return `
     <div class="wolk-blok">
@@ -201,8 +267,8 @@ function waardenHtml(r) {
   const w = weercode(d.code);
   const streek = windstreek(d.windrichting);
   const regels = [
-    ['Weerbeeld', `<span class="weer-icoon" aria-hidden="true">${w.icoon}</span> ${esc(w.tekst)}`],
-    ['Middagtemperatuur', esc(f.temp(d.tempMax))],
+    ['Weerbeeld', `${icoon(icoonVoorCode(d.code), 'weer-icoon')} ${esc(w.tekst)}`],
+    ['Middag', esc(f.temp(d.tempMax))],
     ['Nacht', esc(f.temp(d.tempMin))],
     [
       'Neerslag',
@@ -262,7 +328,19 @@ function uitlegStatusHtml(r, m) {
   return '';
 }
 
-function kaartHtml(r, historie) {
+function rijWaardeHtml(r, s) {
+  if (r.status !== 'ok') {
+    return `<span class="chip chip-${s.kleur}"><span aria-hidden="true">${s.icoon}</span> ${esc(s.kort)}</span>`;
+  }
+  const d = r.dag;
+  return `<span class="model-waarde">
+    ${icoon(icoonVoorCode(d.code))}
+    <span class="model-cijfers"><span class="model-temp">${esc(f.graden(d.tempMax))}°</span><span
+      class="model-mm">${esc(f.mm(d.neerslag))}</span></span>
+  </span>`;
+}
+
+function kaartHtml(r, historie, grafiekBreedte) {
   const m = modellenPerId[r.id];
   const s = STATUSSEN[r.status] ?? STATUSSEN.fout;
   const schuif = r.status === 'ok' ? modelVerschuiving(historie, r.id, 't') : null;
@@ -278,45 +356,42 @@ function kaartHtml(r, historie) {
   ].join('');
 
   return `
-<article class="kaart" data-status="${r.status}" id="model-${esc(r.id)}">
-  <div class="kaart-kop">
+<details class="model" data-status="${r.status}" id="model-${esc(r.id)}">
+  <summary>
     <span class="vlag" aria-hidden="true">${m.vlag}</span>
-    <div class="kaart-titel">
-      <h3>${esc(m.naam)}</h3>
-      <p class="kaart-meta">${esc(metaDelen.join(' · '))}</p>
-    </div>
-    <span class="chip chip-${s.kleur}"><span aria-hidden="true">${s.icoon}</span> ${esc(s.label)}</span>
-  </div>
-  ${merken ? `<p class="merken">${merken}</p>` : ''}
-  ${r.status === 'ok' ? waardenHtml(r) : uitlegStatusHtml(r, m)}
-  ${
-    schuif
-      ? `<p class="model-trend">Deze verwachting is <strong>${esc(
-          f.metTeken(schuif.delta, ' °C')
-        )}</strong> geschoven in ${esc(schuif.sinds)}.</p>`
-      : ''
-  }
-  <div class="waarom">
-    <p>${esc(m.waarom)}</p>
-    ${m.letOp ? `<p class="letop"><strong>Let op:</strong> ${esc(m.letOp)}</p>` : ''}
+    <span class="model-titel">
+      <span class="model-naam">${esc(m.naam)}</span>
+      <span class="model-sub">${esc(`${m.resolutie} · ${m.land}`)}</span>
+    </span>
+    ${rijWaardeHtml(r, s)}
+    <svg class="pijl" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.2 2.5 7.8 6l-3.6 3.5"/></svg>
+  </summary>
+  <div class="model-inhoud">
+    <p class="kaart-meta">${esc(metaDelen.join(' · '))}</p>
+    ${merken ? `<p class="merken">${merken}</p>` : ''}
+    ${r.status === 'ok' ? waardenHtml(r) : uitlegStatusHtml(r, m)}
     ${
-      m.dekkingOnzeker
-        ? `<p class="letop"><strong>Dekking:</strong> ${esc(m.dekking)}.</p>`
+      schuif
+        ? `<p class="model-trend">Deze verwachting is <strong>${esc(
+            f.metTeken(schuif.delta, ' °C')
+          )}</strong> geschoven in ${esc(schuif.sinds)}.</p>`
         : ''
     }
+    ${
+      r.status === 'ok' && r.uren && r.uren.length
+        ? `<div class="uurdetail">${uurGrafiek(r.uren, { breedte: grafiekBreedte })}</div>`
+        : ''
+    }
+    <div class="waarom">
+      <p>${esc(m.waarom)}</p>
+      ${m.letOp ? `<p class="letop"><strong>Let op:</strong> ${esc(m.letOp)}</p>` : ''}
+      ${m.dekkingOnzeker ? `<p class="letop"><strong>Dekking:</strong> ${esc(m.dekking)}.</p>` : ''}
+    </div>
   </div>
-  ${
-    r.status === 'ok' && r.uren && r.uren.length
-      ? `<details class="uurdetail">
-           <summary>Uurverloop op deze dag</summary>
-           ${uurGrafiek(r.uren)}
-         </details>`
-      : ''
-  }
-</article>`;
+</details>`;
 }
 
-function groepenHtml(resultaten, historie) {
+function groepenHtml(resultaten, historie, grafiekBreedte) {
   return Object.entries(GROEPEN)
     .map(([sleutel, g]) => {
       const inGroep = resultaten
@@ -327,10 +402,11 @@ function groepenHtml(resultaten, historie) {
       return `
 <section class="groep">
   <div class="groep-kop">
-    <h3>${esc(g.titel)} <span class="groep-telling">${klaar} van ${inGroep.length} met data</span></h3>
-    <p>${esc(g.ondertitel)}</p>
+    <h3>${esc(g.titel)}</h3>
+    <span class="groep-telling">${klaar} van ${inGroep.length} met data</span>
   </div>
-  <div class="kaarten">${inGroep.map((r) => kaartHtml(r, historie)).join('')}</div>
+  <p class="groep-uitleg">${esc(g.ondertitel)}</p>
+  <div class="lijst">${inGroep.map((r) => kaartHtml(r, historie, grafiekBreedte)).join('')}</div>
 </section>`;
     })
     .join('');
@@ -609,7 +685,9 @@ function renderRooster(resultaten) {
   const { rijen, meting, overgeslagen } = bouwRooster(resultaten, huidigeMeting);
   const basis = METINGEN[huidigeMeting];
 
-  el('rooster-knoppen')
+  const knoppen = el('rooster-knoppen');
+  knoppen.style.setProperty('--i', String(Object.keys(METINGEN).indexOf(huidigeMeting)));
+  knoppen
     .querySelectorAll('button')
     .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.meting === huidigeMeting)));
 
@@ -638,17 +716,30 @@ let laatsteResultaten = [];
 // ophaal loopt, dan mag dat oudere antwoord de nieuwe dag niet overschrijven.
 let laadBeurt = 0;
 
+// Grafieken worden op de echte breedte getekend in plaats van geschaald: een
+// SVG van 560 breed op een telefoon van 360 maakt van 11 px tekst 7 px.
+const breedteVan = (id, aftrek = 0) =>
+  Math.max(260, Math.round(el(id).getBoundingClientRect().width - aftrek));
+
+let laatsteRender = null;
+
 function render(resultaten, meta) {
+  laatsteRender = { resultaten, meta };
   const sam = samenvatting(resultaten);
 
-  el('consensus-inhoud').innerHTML = consensusHtml(sam);
+  const lucht = el('consensus');
+  lucht.dataset.lucht = sam.oordeel ? meesteWeerbeeld(resultaten).naam : 'leeg';
+  el('consensus-inhoud').innerHTML = consensusHtml(sam, resultaten);
   const legenda = legendaHtml(resultaten);
   el('legenda').innerHTML = legenda.merken;
   el('legenda-uitleg').textContent = legenda.uitleg;
   laatsteResultaten = resultaten;
   renderRooster(resultaten);
-  el('wolken').innerHTML = wolkenHtml(sam);
-  el('groepen').innerHTML = groepenHtml(resultaten, meta.historie);
+  el('wolken').innerHTML = wolkenHtml(sam, breedteVan('wolken'));
+  // Open modellen blijven open als de weergave opnieuw wordt opgebouwd.
+  const open = [...document.querySelectorAll('details.model[open]')].map((d) => d.id);
+  el('groepen').innerHTML = groepenHtml(resultaten, meta.historie, breedteVan('groepen', 32));
+  open.forEach((id) => document.getElementById(id)?.setAttribute('open', ''));
   el('tabel').innerHTML = tabelHtml(resultaten);
 
   const trendInhoud = trendHtml(meta.historie);
@@ -665,6 +756,7 @@ async function laad({ forceer = false } = {}) {
   const beurt = ++laadBeurt;
   const knop = el('verversen');
   knop.disabled = true;
+  knop.classList.add('draait');
   zetStatus('verwachtingen ophalen…');
   try {
     const { resultaten, perDag, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
@@ -676,10 +768,15 @@ async function laad({ forceer = false } = {}) {
   } catch (fout) {
     if (beurt !== laadBeurt) return;
     zetStatus(`ophalen mislukt: ${fout.message}`, true);
-    el('consensus-inhoud').innerHTML = `<p class="leeg">Geen verbinding met Open-Meteo, en er staat nog niets in de
-      lokale cache. Controleer je internetverbinding en probeer Verversen.</p>`;
+    el('consensus').dataset.lucht = 'leeg';
+    el('consensus-inhoud').innerHTML = `<p class="lucht-eyebrow">Geen verbinding</p>
+      <p class="lucht-leeg">Open-Meteo is niet bereikbaar en er staat nog niets op dit apparaat. Controleer je
+      internetverbinding en tik op verversen.</p>`;
   } finally {
-    if (beurt === laadBeurt) knop.disabled = false;
+    if (beurt === laadBeurt) {
+      knop.disabled = false;
+      knop.classList.remove('draait');
+    }
   }
 }
 
@@ -701,40 +798,79 @@ function wisselDag(keuze) {
 
 function zetTooltipOp() {
   const tip = el('tip');
-  let zichtbaar = false;
+  let zichtbaar = null;
 
   const verberg = () => {
     if (!zichtbaar) return;
     tip.classList.remove('zichtbaar');
     tip.setAttribute('aria-hidden', 'true');
-    zichtbaar = false;
+    zichtbaar = null;
   };
 
+  const toon = (doel) => {
+    tip.textContent = doel.dataset.tip;
+    tip.classList.add('zichtbaar');
+    tip.setAttribute('aria-hidden', 'false');
+    zichtbaar = doel;
+    const vak = doel.getBoundingClientRect();
+    const breedte = tip.offsetWidth;
+    const links = Math.min(
+      Math.max(8, vak.left + vak.width / 2 - breedte / 2),
+      window.innerWidth - breedte - 8
+    );
+    const boven = vak.top - tip.offsetHeight - 10;
+    tip.style.left = `${links}px`;
+    tip.style.top = `${boven < 8 ? vak.bottom + 10 : boven}px`;
+  };
+
+  // Met een muis volgt de tip de aanwijzer; op een telefoon is er geen hover,
+  // dus daar opent een tik hem en sluit een tweede tik of scrollen hem weer.
   document.addEventListener(
     'pointerover',
     (e) => {
+      if (e.pointerType !== 'mouse') return;
       const doel = e.target.closest?.('[data-tip]');
-      if (!doel) return verberg();
-      tip.textContent = doel.dataset.tip;
-      tip.classList.add('zichtbaar');
-      tip.setAttribute('aria-hidden', 'false');
-      zichtbaar = true;
-      const vak = doel.getBoundingClientRect();
-      const breedte = tip.offsetWidth;
-      const links = Math.min(
-        Math.max(8, vak.left + vak.width / 2 - breedte / 2),
-        window.innerWidth - breedte - 8
-      );
-      const boven = vak.top - tip.offsetHeight - 10;
-      tip.style.left = `${links}px`;
-      tip.style.top = `${boven < 8 ? vak.bottom + 10 : boven}px`;
+      if (doel) toon(doel);
+      else verberg();
     },
     { passive: true }
   );
-
-  document.addEventListener('pointerdown', verberg, { passive: true });
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (e.pointerType === 'mouse') return verberg();
+      const doel = e.target.closest?.('[data-tip]');
+      if (doel && doel !== zichtbaar) toon(doel);
+      else verberg();
+    },
+    { passive: true }
+  );
   window.addEventListener('scroll', verberg, { passive: true });
   document.addEventListener('keydown', (e) => e.key === 'Escape' && verberg());
+}
+
+// Als de grote titel wegscrolt, verschijnt de plaatsnaam klein in de balk —
+// zoals een iOS-navigatiebalk dat doet.
+function zetBalkOp() {
+  const balk = el('balk');
+  if (!('IntersectionObserver' in window)) return;
+  new IntersectionObserver(([ingang]) => balk.classList.toggle('is-vast', !ingang.isIntersecting), {
+    rootMargin: '-8px 0px 0px 0px'
+  }).observe(el('plaats'));
+}
+
+// Een link naar een model in het rooster klapt dat model open en scrolt ernaar.
+function zetModelLinksOp() {
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest?.('a[href^="#model-"]');
+    if (!link) return;
+    const doel = document.getElementById(link.getAttribute('href').slice(1));
+    if (!doel) return;
+    e.preventDefault();
+    doel.open = true;
+    const rustig = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    doel.scrollIntoView({ behavior: rustig ? 'auto' : 'smooth', block: 'start' });
+  });
 }
 
 // ----------------------------------------------------------------------- start
@@ -742,6 +878,21 @@ function zetTooltipOp() {
 function start() {
   vulKop();
   zetTooltipOp();
+  zetBalkOp();
+  zetModelLinksOp();
+
+  // Draait de telefoon of verandert het venster van breedte, dan tekenen we de
+  // grafieken opnieuw op de nieuwe maat.
+  let vorigeBreedte = window.innerWidth;
+  let wacht = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(wacht);
+    wacht = setTimeout(() => {
+      if (window.innerWidth === vorigeBreedte || !laatsteRender) return;
+      vorigeBreedte = window.innerWidth;
+      render(laatsteRender.resultaten, laatsteRender.meta);
+    }, 150);
+  });
   el('verversen').addEventListener('click', () => laad({ forceer: true }));
 
   el('rooster-knoppen').addEventListener('click', (e) => {

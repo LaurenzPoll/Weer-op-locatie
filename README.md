@@ -19,12 +19,12 @@ Een gewone weerapp geeft je één getal, en verzwijgt hoe zeker dat getal is. Oo
 | Onderdeel | Wat het je vertelt |
 |---|---|
 | Schakelaar bovenaan | Vandaag of morgen, met één tik; de keuze staat ook in de URL (`?dag=morgen`) |
-| Oordeel bovenaan | Zijn de modellen het eens, verdeeld of oneens — met de reden erbij |
-| Mediaan en bandbreedte | Het middelste antwoord, plus hoe ver de uitersten uit elkaar liggen |
-| Puntenwolk | Elk model één stip op één as: cluster of chaos in één blik |
-| Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? |
-| Kaart per model | Waarden, uurverloop, en waarom dit model in de lijst hoort |
+| De lucht | De bovenste kaart kleurt mee met het weerbeeld waar de meeste modellen op uitkomen, met de mediane middagtemperatuur groot en een strip met één stip per model |
+| Oordeel | Zijn de modellen het eens, verdeeld of oneens — met de reden erbij |
+| Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? Tik op een vakje voor de waarde |
+| Spreiding | Elk model één stip op één as, met de mediaan en de middelste helft: cluster of chaos in één blik |
 | Trend | Schoof de verwachting de laatste dagen op? (lokaal bijgehouden) |
+| Model voor model | Een lijst in iOS-stijl; tik op een model voor zijn waarden, uurverloop en waarom het in de lijst hoort |
 | Tabel | Alle waarden naast elkaar, ook voor schermlezers |
 
 Elk model krijgt een statuschip, zodat een ontbrekende waarde altijd verklaard is: **actueel**, **haalt deze dag nog niet**, **geen dekking op deze plek** of **ophalen mislukt**.
@@ -48,7 +48,7 @@ Eén regel aanpassen, opslaan, pushen. Draai daarna `node scripts/check-models.m
 
 ## Lokaal draaien
 
-Het is platte HTML, CSS en JavaScript — geen build, geen `npm install`.
+Het is platte HTML, CSS en JavaScript — geen build, geen `npm install`. De opmaak is eerst voor de iPhone gemaakt (voeg hem via *Deel → Zet op beginscherm* toe voor een app zonder adresbalk) en blijft op een groter scherm één smalle kolom.
 
 ```bash
 python3 -m http.server 8000
