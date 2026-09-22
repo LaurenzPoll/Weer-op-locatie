@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Weer op locatie — Meerssen, 28 augustus</title>
+    <title>Weer op locatie — Heerlen</title>
     <meta
       name="description"
-      content="Alle weermodellen naast elkaar voor één dag in Meerssen, met per model de uitleg waarom het meedoet."
+      content="Alle weermodellen naast elkaar voor vandaag of morgen in Heerlen, met per model de uitleg waarom het meedoet."
     />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)" />
@@ -22,9 +22,12 @@
     <header class="kop">
       <div class="omhulsel kop-binnen">
         <div>
-          <p class="kop-plaats" id="plaats">Meerssen</p>
-          <h1 id="datum">28 augustus</h1>
-          <p class="kop-aftellen" id="aftellen"></p>
+          <p class="kop-plaats" id="plaats">Heerlen, Limburg</p>
+          <h1 id="datum">&nbsp;</h1>
+          <div id="dag-knoppen" class="schakelaar dagschakelaar" role="group" aria-label="Kies de dag">
+            <button type="button" data-dag="vandaag" aria-pressed="false">Vandaag</button>
+            <button type="button" data-dag="morgen" aria-pressed="false">Morgen</button>
+          </div>
         </div>
         <div class="kop-acties">
           <button id="verversen" type="button" class="knop">
@@ -36,9 +39,6 @@
     </header>
 
     <main class="omhulsel">
-      <!-- Melding als de datum buiten het bereik van de API valt -->
-      <div id="venstermelding" hidden></div>
-
       <section class="paneel" id="consensus" aria-labelledby="consensus-titel">
         <h2 id="consensus-titel" class="paneel-titel">Wat zeggen ze samen?</h2>
         <div id="consensus-inhoud" class="consensus-inhoud">

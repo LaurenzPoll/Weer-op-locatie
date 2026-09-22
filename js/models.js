@@ -5,8 +5,9 @@
 // actuele namen met aanbieder-voorvoegsel (dwd_icon_*, ncep_gfs_*, cmc_gem_*).
 //
 // De veldwaarden `horizon` en `dekking` zijn wat de aanbieder opgeeft, waar nodig
-// bijgesteld naar wat de API voor deze locatie werkelijk teruggaf (gemeten met
-// scripts/check-models.mjs op 17 augustus 2026). Wat een model op déze dag levert,
+// bijgesteld naar wat de API werkelijk teruggaf (gemeten met
+// scripts/check-models.mjs op 17 augustus 2026, toen nog voor Meerssen, zo'n
+// 16 km ten westen van Heerlen). Wat een model op déze dag levert,
 // bepaalt de app zelf bij het ophalen; dat zie je in de statuschip op de kaart.
 // Draai dat script opnieuw als je de catalogus of de locatie wijzigt.
 
@@ -14,14 +15,14 @@ export const GROEPEN = {
   globaal: {
     titel: 'Globale modellen',
     ondertitel:
-      'Rekenen de hele aardbol door en kijken ver vooruit. Dit zijn de modellen die een dag die nog ruim een week weg is überhaupt kunnen zien.',
+      'Rekenen de hele aardbol door en kijken ver vooruit. Grof van raster, maar ze zien het grote weersysteem aankomen dat de regionale modellen daarna in detail uitrekenen.',
     serie: 1,
     vorm: 'cirkel'
   },
   regionaal: {
     titel: 'Regionale modellen met hoge resolutie',
     ondertitel:
-      'Zoomen in op een klein gebied met een fijn rekenraster, waardoor ze buien, onweer en lokale verschillen echt uitrekenen. De prijs: ze kijken maar een paar dagen vooruit, dus ze haken pas kort voor de datum aan.',
+      'Zoomen in op een klein gebied met een fijn rekenraster, waardoor ze buien, onweer en lokale verschillen echt uitrekenen. De prijs: ze kijken maar een paar dagen vooruit — voor vandaag en morgen zijn ze juist de scherpste blik.',
     serie: 2,
     vorm: 'vierkant'
   },
@@ -48,7 +49,7 @@ export const MODELLEN = [
     groep: 'globaal',
     anker: true,
     waarom:
-      'Het referentiemodel van het Europees centrum in Reading, en het anker van deze vergelijking. In onafhankelijke verificatie scoort ECMWF jaar na jaar het hoogst op dag 3 tot 10 — precies het bereik waarin de 28ste valt zolang die nog ruim een week weg is. Wijkt dit model af van de rest, dan is de kans reëel dat de rest zich vergist en niet hij.'
+      'Het referentiemodel van het Europees centrum in Reading, en het anker van deze vergelijking. In onafhankelijke verificatie scoort ECMWF jaar na jaar het hoogst van alle globale modellen. Voor vandaag en morgen rekenen de regionale modellen fijner, maar wijkt dit model af van de rest, dan is de kans reëel dat de rest zich vergist en niet hij.'
   },
   {
     id: 'ecmwf_ifs',
@@ -138,7 +139,7 @@ export const MODELLEN = [
     dekking: 'wereldwijd',
     groep: 'globaal',
     waarom:
-      'Het globale model van de Duitse Wetterdienst, en de basis waarop ICON-EU en ICON-D2 verder inzoomen. Duitsland zit bovengemiddeld goed in West-Europese weersystemen; ICON is de sterkste niet-ECMWF-speler op ons continent. Met 7,5 dagen komt hij pas in de laatste week in beeld.'
+      'Het globale model van de Duitse Wetterdienst, en de basis waarop ICON-EU en ICON-D2 verder inzoomen. Duitsland zit bovengemiddeld goed in West-Europese weersystemen; ICON is de sterkste niet-ECMWF-speler op ons continent.'
   },
   {
     id: 'ukmo_global_deterministic_10km',
@@ -180,7 +181,7 @@ export const MODELLEN = [
     dekking: 'wereldwijd',
     groep: 'globaal',
     waarom:
-      'Het Japanse globale model. Met 55 km is hij grof — verwacht geen enkel detail over Meerssen — maar hij is volledig zelfstandig ontwikkeld en getuned op een heel ander klimaat. Precies daarom is hij bruikbaar: ziet een grof, ver van hier gebouwd model hetzelfde patroon, dan zit dat patroon er echt.'
+      'Het Japanse globale model. Met 55 km is hij grof — verwacht geen enkel detail over Heerlen — maar hij is volledig zelfstandig ontwikkeld en getuned op een heel ander klimaat. Precies daarom is hij bruikbaar: ziet een grof, ver van hier gebouwd model hetzelfde patroon, dan zit dat patroon er echt.'
   },
   {
     id: 'kma_gdps',
@@ -254,8 +255,8 @@ export const MODELLEN = [
     dekking: 'Duitsland en directe buurlanden (Zuid-Limburg valt erbinnen)',
     groep: 'regionaal',
     waarom:
-      'Het 2 km-model over Duitsland en de directe buurlanden; Zuid-Limburg valt er ruim binnen. Op deze resolutie worden buien niet met een formule geschat maar daadwerkelijk uitgerekend. Dat is het verschil tussen "kans op een bui" en "rond vier uur staat er een onweersbui boven Meerssen".',
-    letOp: 'Kijkt nauwelijks twee dagen vooruit, dus hij doet pas op 26 augustus mee.'
+      'Het 2 km-model over Duitsland en de directe buurlanden; Zuid-Limburg valt er ruim binnen. Op deze resolutie worden buien niet met een formule geschat maar daadwerkelijk uitgerekend. Dat is het verschil tussen "kans op een bui" en "rond vier uur staat er een onweersbui boven Heerlen".',
+    letOp: 'Kijkt nauwelijks twee dagen vooruit: genoeg voor vandaag en morgen, maar ook niet meer dan dat.'
   },
   {
     id: 'knmi_harmonie_arome_netherlands',
@@ -271,7 +272,7 @@ export const MODELLEN = [
     thuismodel: true,
     waarom:
       'Het model waarop het KNMI zijn eigen verwachtingen en waarschuwingen baseert, specifiek voor Nederland afgeregeld: onze land-zeeverdeling, onze bodem, onze kustinvloed. Voor de vraag "kan het buiten of moeten we naar binnen" is dit het laatste woord — het thuismodel voor deze locatie.',
-    letOp: 'Rekent maar 2,5 dag vooruit; hij doet pas de laatste twee dagen mee.'
+    letOp: 'Rekent maar 2,5 dag vooruit — precies genoeg voor vandaag en morgen.'
   },
   {
     id: 'knmi_harmonie_arome_europe',
@@ -324,10 +325,11 @@ export const MODELLEN = [
     resolutie: '1,5 km',
     horizon: 2,
     update: 'elke 3 uur',
-    dekking: 'Frankrijk en directe omgeving — Meerssen valt er net binnen',
+    dekking: 'Frankrijk en directe omgeving — Heerlen ligt tegen de noordoostrand van het rekengebied',
+    dekkingOnzeker: true,
     groep: 'regionaal',
     waarom:
-      'Met 1,5 km het fijnste raster in de hele lijst, en Meerssen valt net binnen de noordoostrand van het Franse rekengebied — gemeten aan de API, niet aangenomen. Voor de laatste twee dagen is dit samen met KNMI Harmonie en ICON-D2 de scherpste blik op waar precies een bui valt.'
+      'Met 1,5 km het fijnste raster in de hele lijst. Meerssen viel gemeten aan de API net binnen de noordoostrand van het Franse rekengebied; Heerlen ligt zo\'n 16 km oostelijker. Levert hij hier niets, dan zegt de statuschip dat. Doet hij mee, dan is dit voor vandaag en morgen samen met KNMI Harmonie en ICON-D2 de scherpste blik op waar precies een bui valt.'
   },
   {
     id: 'chmi_aladin_central_europe_2km',
@@ -341,7 +343,7 @@ export const MODELLEN = [
     dekking: 'Centraal-Europa, inclusief Limburg',
     groep: 'regionaal',
     waarom:
-      'Het Tsjechische Aladin-model op 2 km over Centraal-Europa, en zijn gebied loopt door tot in Limburg. Daarmee heb je voor de laatste dagen een derde onafhankelijke 2 km-blik naast het KNMI en de Duitsers: andere code, andere instellingen, dezelfde vraag.'
+      'Het Tsjechische Aladin-model op 2 km over Centraal-Europa, en zijn gebied loopt door tot in Limburg. Daarmee heb je voor vandaag en morgen een derde onafhankelijke 2 km-blik naast het KNMI en de Duitsers: andere code, andere instellingen, dezelfde vraag.'
   },
 
   // ------------------------------------------------------------- referentie

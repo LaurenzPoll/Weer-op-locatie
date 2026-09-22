@@ -3,18 +3,22 @@
 // Alles staat in localStorage, dus per apparaat en per browser — er gaat niets naar
 // een server.
 
-import { HISTORY_KEY, HISTORY_MAX_ENTRIES, HISTORY_MIN_GAP_MS, TARGET_DATE } from './config.js';
+import { HISTORY_KEY, HISTORY_MAX_ENTRIES, HISTORY_MIN_GAP_MS, TARGET_DATE, datumVoor } from './config.js';
 import { mediaan } from './stats.js';
 
-export function leesHistorie() {
+function leesAlles() {
   try {
     const ruw = localStorage.getItem(HISTORY_KEY);
     if (!ruw) return [];
     const alles = JSON.parse(ruw);
-    return Array.isArray(alles) ? alles.filter((e) => e.datum === TARGET_DATE) : [];
+    return Array.isArray(alles) ? alles : [];
   } catch {
     return [];
   }
+}
+
+export function leesHistorie(datum = TARGET_DATE) {
+  return leesAlles().filter((e) => e.datum === datum);
 }
 
 function schrijfHistorie(lijst) {
@@ -30,26 +34,30 @@ function schrijfHistorie(lijst) {
  * laatste punt in plaats van er een toe te voegen, zodat vaak verversen de
  * trendlijn niet volspamt maar de weergave wel actueel blijft.
  */
-export function bewaarMeting(resultaten) {
+export function bewaarMeting(resultaten, datum = TARGET_DATE) {
   const bruikbaar = resultaten.filter((r) => r.status === 'ok' && r.dag);
-  if (bruikbaar.length < 3) return leesHistorie();
+  if (bruikbaar.length < 3) return leesHistorie(datum);
 
   const punt = {
     ts: new Date().toISOString(),
-    datum: TARGET_DATE,
+    datum,
     mediaanTemp: mediaan(bruikbaar.map((r) => r.dag.tempMax).filter((v) => v !== null)),
     mediaanNeerslag: mediaan(bruikbaar.map((r) => r.dag.neerslag).filter((v) => v !== null)),
     modellen: Object.fromEntries(bruikbaar.map((r) => [r.id, { t: r.dag.tempMax, n: r.dag.neerslag }]))
   };
 
-  const historie = leesHistorie();
+  // De opslag bevat meerdere dagen door elkaar. Dagen die voorbij zijn gooien we
+  // weg; de rest laten we staan, want die hoort bij een andere keuze.
+  const vandaag = datumVoor('vandaag');
+  const anders = leesAlles().filter((e) => e.datum !== datum && e.datum >= vandaag);
+  const historie = leesHistorie(datum);
   const laatste = historie.at(-1);
   if (laatste && Date.now() - new Date(laatste.ts).getTime() < HISTORY_MIN_GAP_MS) {
     historie[historie.length - 1] = punt;
   } else {
     historie.push(punt);
   }
-  schrijfHistorie(historie);
+  schrijfHistorie([...anders, ...historie].sort((a, b) => a.ts.localeCompare(b.ts)));
   return historie;
 }
 

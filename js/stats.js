@@ -1,8 +1,8 @@
 // Spreiding en overeenstemming tussen de modellen.
 //
 // De vraag die deze module beantwoordt is niet "wat wordt het" maar "hoe zeker
-// zijn de modellen het samen". Dat is bij een dag die nog ruim een week weg is
-// het eigenlijke antwoord.
+// zijn de modellen het samen". Ook voor vandaag en morgen is dat het eerlijkste
+// antwoord: een bui die de modellen elk op een ander uur zetten is geen zekerheid.
 
 export function sorteerOp(waarden) {
   return [...waarden].sort((a, b) => a - b);

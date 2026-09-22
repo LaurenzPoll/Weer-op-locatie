@@ -1,21 +1,57 @@
 // Instellingen van de app. Alles wat je normaal zou willen wijzigen staat hier.
 
-// De dag waar deze app over gaat, als ISO-datum (JJJJ-MM-DD).
-// Wil je een andere dag bekijken? Wijzig deze ene regel en klaar.
-export const TARGET_DATE = '2026-08-28';
-
 // De plek waarvoor we de verwachting ophalen.
 export const LOCATION = {
-  naam: 'Meerssen',
+  naam: 'Heerlen',
   regio: 'Limburg',
-  latitude: 50.8917,
-  longitude: 5.75,
+  latitude: 50.8882,
+  longitude: 5.9795,
   timezone: 'Europe/Amsterdam'
 };
 
 // Het dagvenster waar het om gaat: tussen deze uren wil je weten of het droog
 // blijft. Beide grenzen zijn inclusief, dus 11 tot en met 20 uur.
 export const VENSTER = { van: 11, tot: 20 };
+
+// De app gaat altijd over vandaag of morgen, gerekend in de tijdzone van de
+// locatie — niet in die van het apparaat. Bovenaan de pagina wissel je tussen
+// de twee; met ?dag=morgen in de URL open je direct op morgen.
+export const DAGKEUZES = ['vandaag', 'morgen'];
+
+function opLocatie(nu, opties) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: LOCATION.timezone, ...opties }).format(nu);
+}
+
+/** De ISO-datum (JJJJ-MM-DD) die bij 'vandaag' of 'morgen' hoort. */
+export function datumVoor(keuze, nu = new Date()) {
+  // en-CA schrijft datums als JJJJ-MM-DD, precies wat Open-Meteo teruggeeft.
+  const vandaag = opLocatie(nu, { year: 'numeric', month: '2-digit', day: '2-digit' });
+  if (keuze !== 'morgen') return vandaag;
+  const d = new Date(`${vandaag}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function beginKeuze() {
+  if (typeof location !== 'undefined') {
+    const gevraagd = new URLSearchParams(location.search).get('dag');
+    if (DAGKEUZES.includes(gevraagd)) return gevraagd;
+  }
+  // Is het dagvenster van vandaag al voorbij, dan valt er over vandaag niets
+  // meer te plannen en beginnen we bij morgen.
+  const uur = Number(opLocatie(new Date(), { hour: 'numeric', hourCycle: 'h23' }));
+  return uur > VENSTER.tot ? 'morgen' : 'vandaag';
+}
+
+// De gekozen dag. Andere modules lezen DAG en TARGET_DATE rechtstreeks; wijzig
+// ze alleen via kiesDag, dan lopen die twee nooit uit elkaar.
+export let DAG = beginKeuze();
+export let TARGET_DATE = datumVoor(DAG);
+
+export function kiesDag(keuze) {
+  DAG = DAGKEUZES.includes(keuze) ? keuze : 'vandaag';
+  TARGET_DATE = datumVoor(DAG);
+}
 
 export const API_BASE = 'https://api.open-meteo.com/v1/forecast';
 
@@ -30,7 +66,7 @@ export const CACHE_TTL_MS = 30 * 60 * 1000;
 export const FORECAST_DAYS = 16;
 
 // localStorage-sleutels. Verhoog het versienummer als de opslagvorm verandert.
-export const CACHE_KEY = 'weer-op-locatie:cache:v1';
+export const CACHE_KEY = 'weer-op-locatie:cache:v2';
 export const HISTORY_KEY = 'weer-op-locatie:historie:v1';
 
 // Niet vaker dan eens per 3 uur een meetpunt aan de trendgeschiedenis toevoegen,
