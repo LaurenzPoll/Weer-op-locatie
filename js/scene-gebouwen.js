@@ -1,5 +1,4 @@
-// De gebouwen van de 8-bitscène, elk in wereldcoördinaten vanaf zijn
-// linkerrand `x0`. `F` is het beeld van dit moment: tijd, weer, licht, feesten.
+// De gebouwen van de 8-bitscène, elk getekend vanaf zijn linkerrand `x0`. `F` is het beeld van dit moment: tijd, weer, licht, feesten.
 
 import { rustig, maat, kl, licht, meng } from './scene-basis.js';
 

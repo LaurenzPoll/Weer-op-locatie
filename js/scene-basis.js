@@ -53,27 +53,24 @@ export const BAYER = [
   [15, 7, 13, 5]
 ];
 
-// Een pixelbuffer. `ox` is de camera: alles wat in de stad staat wordt in
-// wereldcoördinaten getekend en schuift met de camera mee; de lucht staat
-// stil (ox = 0).
+// Een pixelbuffer met een paar eenvoudige tekenfuncties.
 export class Beeld {
   constructor(w, h) {
     this.w = w;
     this.h = h;
-    this.ox = 0;
     this.data = new ImageData(w, h);
     this.buf = new Uint32Array(this.data.data.buffer);
   }
   px(x, y, c) {
-    x = Math.round(x) - this.ox;
+    x = Math.round(x);
     y = Math.round(y);
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
     this.buf[y * this.w + x] = c;
   }
   rect(x, y, w, h, c) {
-    const x0 = Math.max(0, Math.round(x) - this.ox);
+    const x0 = Math.max(0, Math.round(x));
     const y0 = Math.max(0, Math.round(y));
-    const x1 = Math.min(this.w, Math.round(x + w) - this.ox);
+    const x1 = Math.min(this.w, Math.round(x + w));
     const y1 = Math.min(this.h, Math.round(y + h));
     for (let j = y0; j < y1; j++) if (x1 > x0) this.buf.fill(c, j * this.w + x0, j * this.w + x1);
   }

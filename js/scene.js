@@ -1,10 +1,10 @@
-// De 8-bitmodus: Heerlen in pixels achter de bovenste kaart. Een brede strook
-// stad — Kasteel Hoensbroek, het Glaspaleis, het Raadhuis, de kerktoren, het
-// Maankwartier met de Heliostaat en de trein en de schachtbok, met in de verte
-// de terril met SnowWorld — waar de camera
-// langzaam langs schuift. Met het weer dat de meeste modellen geven, de zon en
-// de maan waar ze nu echt boven Heerlen staan, en Kerstmis, carnaval en
-// Koningsdag als het zover is.
+// De 8-bitmodus: Heerlen in pixels achter de bovenste kaart. Kasteel
+// Hoensbroek, het Maankwartier met de Heliostaat en de trein, en de
+// schachtbok, met in de verte de terril met SnowWorld. Is het scherm breder —
+// een gekantelde telefoon, een laptop — dan komen de kerktoren, het
+// Glaspaleis en het Raadhuis erbij. Met het weer dat de meeste modellen
+// geven, de zon en de maan waar ze nu echt boven Heerlen staan, en Kerstmis,
+// carnaval en Koningsdag als het zover is.
 //
 // Alles wordt per pixel in een klein canvas getekend en met gehele factoren
 // opgeschaald, zodat elke pixel scherp blijft. De animatie loopt op twaalf
@@ -80,25 +80,42 @@ const KLOKVERSCHIL = gevraagd && !Number.isNaN(Date.parse(gevraagd)) ? Date.pars
 
 // ----------------------------------------------------------------- indeling
 
-// De stad is een vaste strook van 500 pixels; is het scherm breder, dan
-// schuiven de gebouwen verder uit elkaar en vullen huizen de gaten.
-const STAD = 500;
-const PLEK = {
-  kasteel: 4,
-  glas: 80,
-  raad: 120,
-  boom: 163,
-  kerk: 175,
-  maan: 285,
-  schacht: 390
-};
-const BREEDTE = { kasteel: 40, glas: 22, raad: 36, boom: 4, kerk: 25, maan: 42, schacht: 33 };
+// Van links naar rechts, met hun breedte en hoe ver de gevel inspringt (het
+// Maankwartier heeft links nog een trap). Kasteel Hoensbroek, het
+// Maankwartier en de schachtbok staan er altijd; de kerk, het Glaspaleis, het
+// Raadhuis en de plek voor de kerstboom komen erbij zolang ze passen, maar
+// pas vanaf 220 pixels: een gekantelde telefoon of een laptop. Een staande
+// telefoon (tot zo'n 215) houdt het bij de drie. Wat overblijft wordt eerlijk
+// verdeeld over de gaten, en daar komen huizen.
+const DELEN = [
+  ['kasteel', 40, 0],
+  ['glas', 22, 1],
+  ['raad', 36, 1],
+  ['boom', 8, 3],
+  ['kerk', 25, 0],
+  ['maan', 49, 7],
+  ['schacht', 34, 2]
+];
+const VAST = ['kasteel', 'maan', 'schacht'];
+const EXTRA = ['kerk', 'glas', 'raad', 'boom'];
+const MINSTE_GAT = 8;
+const BREED = 220;
 
-function indeling(WW) {
-  const f = WW / STAD;
+function indeling(W) {
+  const breedte = (namen) => DELEN.filter(([k]) => namen.includes(k)).reduce((som, [, w]) => som + w + MINSTE_GAT, MINSTE_GAT);
+  let namen = [...VAST];
+  if (W >= BREED) for (const k of EXTRA) if (breedte([...namen, k]) <= W) namen = [...namen, k];
+  const gekozen = DELEN.filter(([k]) => namen.includes(k));
+  const gat = (W - gekozen.reduce((som, [, w]) => som + w, 0)) / (gekozen.length + 1);
   const plek = {};
-  for (const [k, x] of Object.entries(PLEK)) plek[k] = Math.round(x * f);
-  return plek;
+  const bezet = [];
+  let x = gat;
+  for (const [k, w, inspring] of gekozen) {
+    plek[k] = Math.round(x + inspring);
+    bezet.push([Math.round(x) - 2, Math.round(x + w) + 2]);
+    x += w + gat;
+  }
+  return { plek, bezet };
 }
 
 // ----------------------------------------------------------------- tekenen
@@ -115,22 +132,21 @@ function tekenLucht(b, kleuren, flits) {
   }
 }
 
-function tekenHeuvels(b, kleur, verschuif) {
+function tekenHeuvels(b, kleur) {
   const { GROND } = maat;
   const c = kl(kleur);
   for (let x = 0; x < b.w; x++) {
-    const X = x + verschuif;
-    const top = Math.round(GROND - 17 + 3 * Math.sin(X * 0.045 + 1) + 2 * Math.sin(X * 0.11 + 2));
+    const top = Math.round(GROND - 17 + 3 * Math.sin(x * 0.045 + 1) + 2 * Math.sin(x * 0.11 + 2));
     for (let y = top; y < GROND; y++) b.px(x, y, c);
   }
 }
 
-function tekenStraat(b, t, sneeuw, nat, cam) {
+function tekenStraat(b, t, sneeuw, nat) {
   const { GROND, H } = maat;
   b.rect(0, GROND, b.w, 3, kl(sneeuw ? '#eef2f7' : '#7d838c'));
   b.rect(0, GROND + 3, b.w, 1, kl(sneeuw ? '#d9e0e8' : '#a3a9b1'));
   b.rect(0, GROND + 4, b.w, H - GROND - 4, kl('#2b3038'));
-  for (let x = 2 - (cam % 9); x < b.w; x += 9) b.rect(x, GROND + 11, 4, 1, kl('#8e949d'));
+  for (let x = 2; x < b.w; x += 9) b.rect(x, GROND + 11, 4, 1, kl('#8e949d'));
   if (nat) {
     const plas = kl('#4d5d73');
     const rnd = mulberry32(Math.floor(t * 5));
@@ -206,7 +222,6 @@ export function maakScene(canvas) {
   const ctx = canvas.getContext('2d');
   const s = {
     W: 0,
-    WW: STAD,
     weer: 'wolk',
     beeld: null,
     lucht: null,
@@ -228,16 +243,14 @@ export function maakScene(canvas) {
   let laatste = 0;
 
   function maakStad() {
-    const WW = s.WW;
-    const plek = indeling(WW);
-    const bezet = Object.keys(BREEDTE).map((k) => [plek[k] - 3, plek[k] + BREEDTE[k] + 2]);
-    bezet.push([plek.maan - 10, plek.maan + 44]);
+    const W = s.W;
+    const { bezet } = indeling(W);
     const vrij = (a, b) => bezet.every(([l, r]) => b < l || a > r);
     const rnd = mulberry32(11);
     const huizen = [];
     const bomen = [];
     let x = -4;
-    while (x < WW) {
+    while (x < W) {
       const b = 9 + Math.floor(rnd() * 7);
       if (!vrij(x, x + b)) {
         x += 2;
@@ -296,18 +309,6 @@ export function maakScene(canvas) {
     s.bliksem = null;
   }
 
-  // De camera schuift heen en weer langs de stad, langzaam en met een zachte
-  // bocht aan de uiteinden. Hij begint bij het Maankwartier.
-  function camera(t, plek) {
-    const R = s.WW - s.W;
-    if (R <= 0) return 0;
-    const begin = Math.max(0, Math.min(R, plek.maan + 21 - s.W / 2));
-    if (rustig) return Math.round(begin);
-    const T = (2 * R) / 2.5 + 20;
-    const u0 = Math.acos(1 - (2 * begin) / R) / (2 * Math.PI);
-    return Math.round((R * (1 - Math.cos(2 * Math.PI * (t / T + u0)))) / 2);
-  }
-
   function teken(t) {
     const b = s.beeld;
     if (!b) return;
@@ -315,10 +316,8 @@ export function maakScene(canvas) {
     const dt = Math.min(0.12, Math.max(0, t - vorige));
     vorige = t;
     const W = s.W;
-    const WW = s.WW;
     const weer = s.weer;
-    const plek = indeling(WW);
-    const cam = camera(t, plek);
+    const { plek } = indeling(W);
 
     const nu = new Date(Date.now() + KLOKVERSCHIL);
     const hem = hemel(nu);
@@ -328,7 +327,7 @@ export function maakScene(canvas) {
     const horizon = kleuren[3];
     const helder = ZONNIG.has(weer);
     const [zonX, zonY] = positie(W, hem.zon);
-    const heliostaat = plek.maan + 36 - cam;
+    const heliostaat = plek.maan + 36;
     const F = {
       t,
       weer,
@@ -344,7 +343,7 @@ export function maakScene(canvas) {
 
     if (weer === 'onweer' && !rustig && t > s.volgendeFlits) {
       s.flitsTot = t + 0.2;
-      const schacht = plek.schacht + 5 - cam;
+      const schacht = plek.schacht + 5;
       const opSchacht = Math.random() < 0.5 && schacht > 0 && schacht < W;
       s.bliksem = maakBliksem(W, opSchacht ? [schacht, GROND - 42] : [W * (0.2 + Math.random() * 0.6), GROND - 12]);
       s.volgendeFlits = t + 2.2 + Math.random() * 3;
@@ -352,7 +351,6 @@ export function maakScene(canvas) {
     const flits = t < s.flitsTot;
 
     // De lucht met sterren, maan en zon: die worden 's nachts niet donkerder.
-    b.ox = 0;
     tekenLucht(b, kleuren, flits);
     if (helder && dag < 0.4) tekenSterren(b, s.sterren, t, GROND - 22);
     if ((helder || weer === 'wolk') && dag < 0.7 && hem.maan.hoogte > -3) {
@@ -394,54 +392,46 @@ export function maakScene(canvas) {
       for (let i = 0; i < s.bliksem.length - 1; i++) b.lijn(...s.bliksem[i], ...s.bliksem[i + 1], geel);
     }
 
-    // De stad, in wereldcoördinaten achter de camera.
-    // De terril met SnowWorld staat in de verte: vager, in de kleur van de
-    // horizon, en hij schuift half zo snel mee als de stad.
-    const verte = Math.round(cam * 0.5);
-    const terril = Math.round(W * 0.75 + (WW - W) * 0.42);
-    b.ox = verte;
+    // De stad, met in de verte de terril met SnowWorld: vager, in de kleur van
+    // de horizon, achter de heuvels.
+    const terril = Math.round(W * 0.78);
     tekenTerril(b, terril, { ...F, tint: (c, f = 0.12) => kl(meng(c, horizon, Math.min(0.85, f + 0.38))) }, terril + 60);
-    b.ox = 0;
-    tekenHeuvels(b, meng(horizon, '#2f4f3a', 0.45), verte);
-    b.ox = cam;
+    tekenHeuvels(b, meng(horizon, '#2f4f3a', 0.45));
     tekenSchachtbok(b, plek.schacht, F);
     tekenKasteel(b, plek.kasteel, F);
-    tekenRaadhuis(b, plek.raad, F);
-    tekenKerk(b, plek.kerk, F);
+    if (plek.raad !== undefined) tekenRaadhuis(b, plek.raad, F);
+    if (plek.kerk !== undefined) tekenKerk(b, plek.kerk, F);
     tekenMaankwartier(b, plek.maan, F);
-    tekenGlaspaleis(b, plek.glas, F);
+    if (plek.glas !== undefined) tekenGlaspaleis(b, plek.glas, F);
     tekenHuizen(b, s.stad, F);
-    if (feest.kerst) tekenKerstboom(b, plek.boom + 2, F);
+    // Is er geen plek voor de kerstboom, dan staat hij voor de trap van het station.
+    if (feest.kerst) tekenKerstboom(b, plek.boom ?? plek.maan - 13, F);
     const halte = plek.maan + 2;
     tekenBushalte(b, halte);
     const lantaarns = [];
-    for (let x = 30; x < WW; x += 64) lantaarns.push(x);
+    for (let x = 30; x < W; x += 64) lantaarns.push(x);
     tekenLantaarns(b, lantaarns, F);
-    b.ox = 0;
-    tekenStraat(b, t, F.sneeuw, NAT.has(weer), cam);
-    b.ox = cam;
-    if (feest.carnaval) tekenSlingers(b, 0, WW, ['#d52b1e', '#ffd35c', '#2f8a3a'], F);
-    else if (feest.koning) tekenSlingers(b, 0, WW, ['#ff7f00', '#ff9d2e', '#ffffff', '#21468b'], F);
-    b.ox = 0;
+    tekenStraat(b, t, F.sneeuw, NAT.has(weer));
+    if (feest.carnaval) tekenSlingers(b, 0, W, ['#d52b1e', '#ffd35c', '#2f8a3a'], F);
+    else if (feest.koning) tekenSlingers(b, 0, W, ['#ff7f00', '#ff9d2e', '#ffffff', '#21468b'], F);
 
     if (weer === 'mist') {
       const nevel = kl('#c9ced4');
       for (let y = Math.max(0, GROND - 50); y < GROND + 8; y++)
         for (let x = 0; x < W; x++) {
-          const d = 0.3 + 0.2 * Math.sin(y * 0.35 + t * 0.4) + 0.12 * Math.sin((x + cam) * 0.06 + t * 0.6 + y * 0.2);
+          const d = 0.3 + 0.2 * Math.sin(y * 0.35 + t * 0.4) + 0.12 * Math.sin(x * 0.06 + t * 0.6 + y * 0.2);
           if ((BAYER[y & 3][x & 3] + 0.5) / 16 < d) b.px(x, y, nevel);
         }
     }
 
     // Wie er over straat gaat.
-    b.ox = cam;
-    if (F.sneeuw) tekenSneeuwpop(b, plek.kerk + 30);
-    if (NAT.has(weer)) tekenWandelaar(b, Math.round(((WW * 0.2 + (rustig ? 0 : t * 4)) % (WW + 20)) - 10), t);
-    else if (!F.sneeuw) tekenFietser(b, Math.round(((WW * 0.05 + (rustig ? 0 : t * 11)) % (WW + 30)) - 15), t);
+    if (F.sneeuw) tekenSneeuwpop(b, plek.kasteel + 46);
+    if (NAT.has(weer)) tekenWandelaar(b, Math.round(((W * 0.2 + (rustig ? 0 : t * 4)) % (W + 20)) - 10), t);
+    else if (!F.sneeuw) tekenFietser(b, Math.round(((W * 0.05 + (rustig ? 0 : t * 11)) % (W + 30)) - 15), t);
     // De bus komt van rechts, stopt even bij de halte voor het station en rijdt
     // door. Met carnaval rijdt om de beurt een carnavalswagen mee.
     const v = 26;
-    const van = WW + 30;
+    const van = W + 30;
     const stop = halte - 5;
     const t1 = (van - stop) / v;
     const t2 = (stop + 35) / v;
@@ -458,7 +448,6 @@ export function maakScene(canvas) {
       else if (u < t1 + 5 + t2) x = stop - (u - t1 - 5) * v;
       if (x !== null) tekenBus(b, Math.round(x), t, F.lampen);
     }
-    b.ox = 0;
 
     maakNacht(b, s.lucht, (1 - dag) * 0.62);
 
@@ -530,7 +519,6 @@ export function maakScene(canvas) {
       maat.H = nieuwH;
       maat.GROND = nieuwH - STRAAT;
       s.W = W;
-      s.WW = Math.max(STAD, W);
       canvas.width = W;
       canvas.height = nieuwH;
       canvas.style.width = `${W * schaal}px`;

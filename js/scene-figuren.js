@@ -1,6 +1,5 @@
-// Wat er door de scène beweegt: mensen en voertuigen op straat (in
-// wereldcoördinaten) en zon, maan, sterren, wolken, een luchtballon, een
-// vliegtuig en vogels in de lucht (in schermcoördinaten).
+// Wat er door de scène beweegt: mensen en voertuigen op straat, en zon,
+// maan, sterren, wolken, een luchtballon, een vliegtuig en vogels in de lucht.
 
 import { rustig, maat, kl, licht } from './scene-basis.js';
 
