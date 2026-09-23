@@ -14,6 +14,7 @@
 export const GROEPEN = {
   globaal: {
     titel: 'Globale modellen',
+    kort: 'Globaal',
     ondertitel:
       'Rekenen de hele aardbol door en kijken ver vooruit. Grof van raster, maar ze zien het grote weersysteem aankomen dat de regionale modellen daarna in detail uitrekenen.',
     serie: 1,
@@ -21,6 +22,7 @@ export const GROEPEN = {
   },
   regionaal: {
     titel: 'Regionale modellen met hoge resolutie',
+    kort: 'Regionaal',
     ondertitel:
       'Zoomen in op een klein gebied met een fijn rekenraster, waardoor ze buien, onweer en lokale verschillen echt uitrekenen. De prijs: ze kijken maar een paar dagen vooruit — voor vandaag en morgen zijn ze juist de scherpste blik.',
     serie: 2,
@@ -28,6 +30,7 @@ export const GROEPEN = {
   },
   referentie: {
     titel: 'Referentie',
+    kort: 'Referentie',
     ondertitel: 'Geen eigen model, maar een ijkpunt om de rest tegen af te zetten.',
     serie: 3,
     vorm: 'ruit'
@@ -369,31 +372,32 @@ export function model(id) {
   return MODELLEN.find((m) => m.id === id);
 }
 
-// Korte namen voor het uurrooster, waar de volledige modelnaam de kolom onnodig
-// smal maakt — op een telefoon is dat het verschil tussen zes en tien uren in
-// beeld. Op de kaarten blijft de volledige naam staan.
+// Korte namen voor het uurrooster. Daar is de namenkolom op een telefoon zo'n
+// 70 punten breed, want de uren krijgen voorrang: alle tien naast elkaar. Net
+// als GFS, ICON en ARPEGE heten de ECMWF-modellen hier naar het model zelf. Op
+// de kaarten blijft de volledige naam staan.
 const KORT = {
-  ecmwf_ifs025: 'ECMWF IFS',
-  ecmwf_ifs: 'ECMWF HRES',
-  ecmwf_aifs025_single: 'ECMWF AIFS',
+  ecmwf_ifs025: 'IFS',
+  ecmwf_ifs: 'IFS 9 km',
+  ecmwf_aifs025_single: 'AIFS',
   ncep_gfs_seamless: 'GFS',
   ncep_aigfs025: 'AI-GFS',
-  ncep_hgefs025_ensemble_mean: 'HGEFS ensemble',
-  dwd_icon_global: 'ICON Global',
-  ukmo_global_deterministic_10km: 'UKMO Global',
-  cmc_gem_gdps: 'GEM Global',
+  ncep_hgefs025_ensemble_mean: 'HGEFS',
+  dwd_icon_global: 'ICON',
+  ukmo_global_deterministic_10km: 'UKMO',
+  cmc_gem_gdps: 'GEM',
   jma_gsm: 'JMA GSM',
-  kma_gdps: 'KMA GDPS',
+  kma_gdps: 'KMA',
   cma_grapes_global: 'GRAPES',
-  bom_access_global: 'ACCESS-G',
+  bom_access_global: 'ACCESS',
   dwd_icon_eu: 'ICON-EU',
   dwd_icon_d2: 'ICON-D2',
-  knmi_harmonie_arome_netherlands: 'KNMI NL 2 km',
-  knmi_harmonie_arome_europe: 'KNMI Europa',
-  dmi_harmonie_arome_europe: 'DMI Harmonie',
+  knmi_harmonie_arome_netherlands: 'KNMI NL',
+  knmi_harmonie_arome_europe: 'KNMI EU',
+  dmi_harmonie_arome_europe: 'DMI',
   meteofrance_arpege_europe: 'ARPEGE',
   meteofrance_arome_france_hd: 'AROME HD',
-  chmi_aladin_central_europe_2km: 'Aladin CZ',
+  chmi_aladin_central_europe_2km: 'Aladin',
   best_match: 'Best Match'
 };
 

@@ -200,11 +200,13 @@ summary {
 
 /* ------------------------------------------------------ grote titel & balk */
 
+/* De datum staat in de regel boven de plaatsnaam: zo kost hij geen eigen regel,
+   en het jaartal laten we weg — het gaat altijd om vandaag of morgen. */
 .kop {
-  padding-block: calc(env(safe-area-inset-top) + 22px) 6px;
+  padding-block: calc(env(safe-area-inset-top) + 18px) 4px;
 }
 .kop-regio {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.09em;
@@ -219,25 +221,32 @@ summary {
   letter-spacing: 0.01em;
   text-transform: uppercase;
 }
-.kop-datum {
-  margin: 8px 0 0;
-  font-size: 17px;
-  color: var(--text-2);
-}
-.kop-datum::first-letter {
-  text-transform: uppercase;
-}
 
+/* De balk plakt net onder de statusbalk in plaats van die strook als eigen
+   opvulling mee te dragen; anders staat er, zodra iOS een inzet boven meldt,
+   een leeg vlak zo hoog als de statusbalk tussen titel en dagknop. De strook
+   zelf krijgt hetzelfde glas, zodat wat eronder doorschuift zacht vervaagt. */
 .balk {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top);
   z-index: 20;
-  padding-top: env(safe-area-inset-top);
   background: var(--glas);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid transparent;
   transition: border-color 0.2s ease;
+}
+body::before {
+  content: '';
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: var(--glas);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
 }
 .balk.is-vast {
   border-bottom-color: var(--rand);
@@ -246,12 +255,15 @@ summary {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 60px;
+  min-height: 58px;
 }
+/* In rust neemt de kleine titel geen ruimte in en vult de dagknop de balk, in
+   plaats van rechts te zweven naast een lege helft. Scrolt de grote titel weg,
+   dan schuift de kleine erin en maakt de dagknop plaats. */
 .balk-titel {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
+  flex: none;
+  max-width: 0;
+  margin: 0 -12px 0 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -261,12 +273,21 @@ summary {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.2s ease, transform 0.25s var(--veer);
+  transition: max-width 0.3s var(--veer), margin 0.3s var(--veer), opacity 0.2s ease;
 }
 .balk.is-vast .balk-titel {
+  max-width: 40%;
+  margin-right: 0;
   opacity: 1;
-  transform: none;
+}
+/* Op een heel smal scherm (een kleine iPhone met ingezoomde weergave) past de
+   titel er niet naast zonder de dagknop te pletten; dan blijft hij weg. */
+@media (max-width: 359px) {
+  .balk.is-vast .balk-titel {
+    max-width: 0;
+    margin-right: -12px;
+    opacity: 0;
+  }
 }
 
 /* Segmentknop zoals in iOS: een wit "duimpje" dat onder de gekozen optie
@@ -313,12 +334,22 @@ summary {
 .segment button:active {
   opacity: 0.55;
 }
+/* Op een telefoon vult hij de balk; op een groot scherm zou hij daarmee een
+   langgerekte strook worden, dus daar houdt hij een telefoonmaat aan. */
 #dag-knoppen {
-  flex: none;
-  width: 200px;
+  flex: 1;
+  min-width: 0;
+  max-width: 360px;
+  margin-left: auto;
 }
 #rooster-knoppen {
   margin-bottom: 14px;
+}
+/* Drie opties op een smal paneel: iets kleiner, zodat "Temperatuur" ook op de
+   kleinste iPhone binnen zijn vak blijft. */
+#rooster-knoppen button {
+  padding-inline: 4px;
+  font-size: 14px;
 }
 
 .rondknop {
@@ -980,8 +1011,11 @@ svg.trend {
   color: var(--text-1);
 }
 
-/* Het rooster is breder dan een telefoon. Het scrolt binnen zijn eigen kader,
-   en de modelnamen blijven links staan terwijl de uren eronderdoor schuiven. */
+/* Het rooster past op de breedte van een telefoon: alle uren van het venster
+   naast elkaar, zonder zijwaarts scrollen. De namenkolom is net breed genoeg
+   voor een korte naam met het dagtotaal eronder; de uren delen de rest. Alleen
+   op een uitzonderlijk smal scherm (of flink ingezoomd) scrolt hij alsnog, en
+   dan blijven de namen links staan terwijl de uren eronderdoor schuiven. */
 .rooster-omhulsel {
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -989,16 +1023,22 @@ svg.trend {
   /* Gepositioneerd, zodat de screenreader-tekst in de cellen binnen dit
      scrollkader blijft en de pagina zelf niet horizontaal gaat scrollen. */
   position: relative;
+  /* De tussenruimte rond de buitenste vakjes valt in de marge van het paneel,
+     zodat de vakjes precies op de rand van de tekst erboven staan. */
+  margin-inline: -3px;
 }
 .rooster-omhulsel::-webkit-scrollbar {
   display: none;
 }
 
 .rooster {
+  --namen: clamp(64px, 24vw - 14px, 116px);
+  table-layout: fixed;
+  width: 100%;
+  min-width: 250px;
   border-collapse: separate;
   /* De tussenruimte is de achtergrondkleur zelf: die scheidt de vakjes. */
   border-spacing: 3px;
-  margin-inline: -3px;
   font-size: 13px;
 }
 .rooster th,
@@ -1007,12 +1047,12 @@ svg.trend {
   font-weight: 400;
 }
 .rooster thead th {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   text-align: center;
+  vertical-align: bottom;
   padding-bottom: 2px;
-  min-width: 30px;
 }
 .rooster thead th:first-child,
 .rooster tbody th,
@@ -1020,25 +1060,43 @@ svg.trend {
   position: sticky;
   left: 0;
   z-index: 1;
+  width: var(--namen);
   background: var(--surface-1);
   box-shadow: 3px 0 0 var(--surface-1);
   text-align: left;
-  min-width: 92px;
-  max-width: 132px;
-  padding-right: 8px;
-  line-height: 1.2;
+  padding-right: 6px;
+  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.rooster thead th:first-child {
+  font-size: 12px;
+}
 .rooster tbody th a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
   color: var(--text-1);
   font-weight: 600;
   text-decoration: none;
 }
+/* Het dagtotaal van de rij, klein onder de modelnaam. */
+.rooster .rooster-som {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.rooster thead .rooster-som {
+  color: var(--muted);
+}
 .rooster tbody td {
-  height: 32px;
-  border-radius: 7px;
+  height: 30px;
+  border-radius: 6px;
   background: var(--ramp-4);
 }
 .rooster tbody td[data-stap='1'] {
@@ -1085,29 +1143,35 @@ svg.trend {
   outline: 2px solid var(--text-1);
   outline-offset: -1px;
 }
-.rooster .rooster-som {
-  background: transparent !important;
-  padding-left: 8px;
-  font-weight: 650;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  outline: 0 !important;
-}
-.rooster thead .rooster-som {
-  font-weight: 400;
-  text-align: left;
+.rooster tbody td.cel-icoon .ic {
+  width: 16px;
+  height: 16px;
 }
 .rooster .rooster-voet {
   text-align: center;
   color: var(--text-2);
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   padding-top: 4px;
 }
 .rooster tfoot th {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   padding-top: 4px;
+  white-space: normal;
+}
+/* Ingezoomde weergave op een kleine iPhone: 320 punten breed. Met smallere
+   voegen passen de tien uren er dan nog steeds naast elkaar. */
+@media (max-width: 350px) {
+  .rooster-omhulsel {
+    margin-inline: -2px;
+  }
+  .rooster {
+    border-spacing: 2px;
+  }
+  .rooster tbody th a {
+    font-size: 12px;
+  }
 }
 
 .rooster-legenda {
@@ -1165,6 +1229,43 @@ svg.trend {
 }
 .rooster-uitleg strong {
   color: var(--text-1);
+}
+
+/* Uitleg die er mag zijn maar niet in de weg hoeft te staan: ingeklapt achter
+   een vraag, met een tikvlak dat groot genoeg is voor een duim. */
+.meer {
+  margin-top: 4px;
+}
+.meer > summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.meer > summary::-webkit-details-marker {
+  display: none;
+}
+.meer > summary::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.25s var(--veer);
+}
+.meer[open] > summary::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}
+.meer > p {
+  margin-top: 0;
 }
 .rooster-noot {
   margin: 10px 0 0;
@@ -1293,8 +1394,14 @@ svg.trend {
   line-height: 1.25;
 }
 .model-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 13px;
   color: var(--muted);
+}
+.model-sub .chip {
+  margin-top: 4px;
 }
 .model:not([data-status='ok']) .model-naam {
   color: var(--text-2);

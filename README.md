@@ -21,7 +21,7 @@ Een gewone weerapp geeft je één getal, en verzwijgt hoe zeker dat getal is. Oo
 | Schakelaar bovenaan | Vandaag of morgen, met één tik; de keuze staat ook in de URL (`?dag=morgen`) |
 | De lucht | De bovenste kaart kleurt mee met het weerbeeld waar de meeste modellen op uitkomen, met de mediane middagtemperatuur groot en een strip met één stip per model |
 | Oordeel | Zijn de modellen het eens, verdeeld of oneens — met de reden erbij |
-| Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? Tik op een vakje voor de waarde |
+| Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? Alle uren passen naast elkaar op een telefoon, met het dagtotaal onder de modelnaam. Tik op een vakje voor de waarde |
 | Spreiding | Elk model één stip op één as, met de mediaan en de middelste helft: cluster of chaos in één blik |
 | Trend | Schoof de verwachting de laatste dagen op? (lokaal bijgehouden) |
 | Model voor model | Een lijst in iOS-stijl; tik op een model voor zijn waarden, uurverloop en waarom het in de lijst hoort |

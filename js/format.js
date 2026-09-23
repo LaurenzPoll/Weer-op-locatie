@@ -49,6 +49,12 @@ export function langeDatum(iso) {
   return `${DAGEN[d.getDay()]} ${d.getDate()} ${MAANDEN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "woensdag 26 augustus" — het jaartal zegt niets als het om vandaag of morgen gaat. */
+export function weekdagDatum(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  return `${DAGEN[d.getDay()]} ${d.getDate()} ${MAANDEN[d.getMonth()]}`;
+}
+
 /** "26 augustus" — zonder jaartal, voor tekst binnen hetzelfde jaar. */
 export function dagMaand(iso) {
   const d = new Date(`${iso}T12:00:00`);

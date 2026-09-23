@@ -31,9 +31,8 @@
     <a class="overslaan" href="#modellen">Direct naar de modellen</a>
 
     <header class="kop omhulsel">
-      <p class="kop-regio" id="regio">Limburg</p>
+      <p class="kop-regio"><span id="regio">Limburg</span><span id="datum"></span></p>
       <h1 class="kop-plaats" id="plaats">Heerlen</h1>
-      <p class="kop-datum" id="datum">&nbsp;</p>
     </header>
 
     <div class="balk" id="balk">
@@ -65,8 +64,8 @@
       <section class="sectie" id="rooster" aria-labelledby="rooster-titel">
         <h2 id="rooster-titel" class="sectie-titel">Uur voor uur</h2>
         <p class="sectie-uitleg">
-          Elke rij een model, elke kolom een uur tussen 11:00 en 20:00. Zetten ze de regen op hetzelfde uur, of kiest
-          ieder een ander moment? Tik op een vakje voor de waarde.
+          Elke rij een model, elke kolom een uur. Zetten ze de regen op hetzelfde uur, of kiest ieder een ander
+          moment? Tik op een vakje voor de waarde.
         </p>
         <div class="paneel">
           <div id="rooster-knoppen" class="segment" role="group" aria-label="Kies wat je wilt zien" style="--n: 3; --i: 0">
@@ -87,7 +86,10 @@
         </p>
         <div class="paneel">
           <div id="legenda" class="legenda"></div>
-          <p id="legenda-uitleg" class="legenda-uitleg"></p>
+          <details class="meer">
+            <summary>Wat is het verschil tussen de groepen?</summary>
+            <p id="legenda-uitleg" class="legenda-uitleg"></p>
+          </details>
           <div id="wolken"></div>
         </div>
       </section>

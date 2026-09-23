@@ -30,7 +30,9 @@ const STATUS_ORDE = { ok: 0, buiten_bereik: 1, geen_dekking: 2, fout: 3 };
 function vulKop() {
   el('plaats').textContent = LOCATION.naam;
   el('regio').textContent = LOCATION.regio;
-  el('datum').textContent = f.langeDatum(TARGET_DATE);
+  // Het scheidingsteken komt met de datum mee, zodat er vóór het laden geen los
+  // puntje achter de regio staat.
+  el('datum').textContent = ` · ${f.weekdagDatum(TARGET_DATE)}`;
   const knoppen = el('dag-knoppen');
   knoppen.style.setProperty('--i', String(DAGKEUZES.indexOf(DAG)));
   knoppen
@@ -105,7 +107,7 @@ function koorHtml(v) {
       </div>
       <div class="koor-as" aria-hidden="true">
         <span>${esc(f.graden(v.min))}°</span>
-        <span>elke stip een model · band is de middelste helft</span>
+        <span>elke stip is één model</span>
         <span>${esc(f.graden(v.max))}°</span>
       </div>
     </div>`;
@@ -145,7 +147,7 @@ function consensusHtml(sam, resultaten) {
       <div><dt>Nacht</dt><dd>${esc(f.temp(sam.tempMin?.mediaan))}</dd>
         <dd class="bij">${sam.tempMin ? `${esc(f.graden(sam.tempMin.min))} – ${esc(f.graden(sam.tempMin.max))}°` : ''}</dd></div>
       <div><dt>Neerslag</dt><dd>${esc(f.mm(n.mediaan))}</dd>
-        <dd class="bij">${natte} van ${n.aantal} boven 1 mm</dd></div>
+        <dd class="bij">${natte} van ${n.aantal} nat</dd></div>
       <div><dt>Wind</dt><dd>${esc(f.kmh(sam.wind?.mediaan))}</dd>
         <dd class="bij">${sam.wind ? `tot ${esc(f.kmh(sam.wind.max))}` : ''}</dd></div>
     </dl>
@@ -187,7 +189,7 @@ function legendaHtml(resultaten) {
             : `<circle cx="8" cy="8" r="5.5"/>`;
       return `<span class="legenda-item">
         <svg class="legenda-vorm serie-${g.serie}" viewBox="0 0 16 16" aria-hidden="true">${vormSvg}</svg>
-        ${esc(g.titel)}</span>`;
+        ${esc(g.kort)}</span>`;
     })
     .join('');
   return { merken, uitleg };
@@ -328,15 +330,25 @@ function uitlegStatusHtml(r, m) {
   return '';
 }
 
-function rijWaardeHtml(r, s) {
+// Onder de naam: resolutie en land, of — als het model niets levert — de
+// statuschip. Die stond eerst rechts, waar hij de naam op een telefoon over
+// twee of drie regels drukte.
+function rijSubHtml(r, m, s) {
   if (r.status !== 'ok') {
-    return `<span class="chip chip-${s.kleur}"><span aria-hidden="true">${s.icoon}</span> ${esc(s.kort)}</span>`;
+    return `<span class="model-sub"><span class="chip chip-${s.kleur}"><span aria-hidden="true">${
+      s.icoon
+    }</span> ${esc(s.kort)}</span></span>`;
   }
+  return `<span class="model-sub">${esc(`${m.resolutie} · ${m.land}`)}</span>`;
+}
+
+function rijWaardeHtml(r) {
+  if (r.status !== 'ok') return '<span class="model-waarde"></span>';
   const d = r.dag;
   return `<span class="model-waarde">
     ${icoon(icoonVoorCode(d.code))}
     <span class="model-cijfers"><span class="model-temp">${esc(f.graden(d.tempMax))}°</span><span
-      class="model-mm">${esc(f.mm(d.neerslag))}</span></span>
+      class="model-mm">${d.neerslag !== null && d.neerslag < 0.1 ? 'droog' : esc(f.mm(d.neerslag))}</span></span>
   </span>`;
 }
 
@@ -360,10 +372,10 @@ function kaartHtml(r, historie, grafiekBreedte) {
   <summary>
     <span class="vlag" aria-hidden="true">${m.vlag}</span>
     <span class="model-titel">
-      <span class="model-naam">${esc(m.naam)}</span>
-      <span class="model-sub">${esc(`${m.resolutie} · ${m.land}`)}</span>
+      <span class="model-naam">${esc(m.naam).replace(/(\d) (km)\b/g, '$1&nbsp;$2')}</span>
+      ${rijSubHtml(r, m, s)}
     </span>
-    ${rijWaardeHtml(r, s)}
+    ${rijWaardeHtml(r)}
     <svg class="pijl" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.2 2.5 7.8 6l-3.6 3.5"/></svg>
   </summary>
   <div class="model-inhoud">
@@ -512,7 +524,8 @@ const METINGEN = {
       };
     },
     samenvattingLabel: 'totaal',
-    samenvattingFormatter: (v) => f.mm(v),
+    // Zelfde grens als een leeg vakje: onder 0,1 mm heet het droog.
+    samenvattingFormatter: (v) => (v < 0.1 ? 'droog' : f.mm(v)),
     rijSamenvatting: (waarden) => som(waarden),
     voetLabel: 'modellen met regen',
     voetWaarde: (perUur) => perUur.filter((v) => v >= 0.1).length,
@@ -523,6 +536,7 @@ const METINGEN = {
       laag: 'een spat',
       hoog: 'stortbui',
       nulLabel: 'droog',
+      uitlegKop: 'Wat betekenen de kleuren?',
       uitleg:
         `De schaal ligt vast, dus dezelfde kleur betekent altijd hetzelfde. Een <strong>leeg vakje is droog</strong>:
          minder dan 0,1 mm in dat uur. <strong>Een spat</strong> is 0,1 tot 0,3 mm — dat zie je op de stoep en verder
@@ -566,6 +580,7 @@ const METINGEN = {
         { icoon: 'halfzon', label: 'halfbewolkt — 10 tot 40 minuten' },
         { icoon: 'wolk', label: 'bewolkt — minder dan 10 minuten' }
       ],
+      uitlegKop: 'Wat betekent 40 minuten zon?',
       uitleg: `Een uur duurt 60 minuten, dus "40 minuten zon" betekent dat de zon twee derde van dat uur vrij stond.`
     },
     kop: (rijen) => {
@@ -598,12 +613,16 @@ const METINGEN = {
     domein: (alle) => [Math.min(...alle), Math.max(...alle)],
     voetLabel: 'mediaan (°C)',
     voetWaarde: (perUur) => (perUur.length ? mediaan(perUur) : null),
-    voetFormatter: (v) => (v === null ? '' : f.graden(v)),
+    // Hele graden: een decimaal past niet in een kolom van een telefoonbreed
+    // rooster, en de vakjes en tips geven de precieze waarde al. `|| 0` voorkomt
+    // een "-0" bij een mediaan net onder nul.
+    voetFormatter: (v) => (v === null ? '' : String(Math.round(v) || 0)),
     tabelUitleg: `Temperatuur per uur per model tussen ${venTekst}, in graden Celsius.`,
     legenda: {
       soort: 'balk',
       laag: 'koeler',
       hoog: 'warmer',
+      uitlegKop: 'Hoe loopt de kleurschaal?',
       uitleg: `Het verloop is niet vast maar past zich aan deze dag aan: het lichtste geel is de koelste waarde die
         een model in dit venster geeft, het donkerste de warmste.`
     },
@@ -850,12 +869,14 @@ function zetTooltipOp() {
 }
 
 // Als de grote titel wegscrolt, verschijnt de plaatsnaam klein in de balk —
-// zoals een iOS-navigatiebalk dat doet.
+// zoals een iOS-navigatiebalk dat doet. Op het beginscherm verdwijnt hij al
+// onder de statusbalk, dus die strook telt mee.
 function zetBalkOp() {
   const balk = el('balk');
   if (!('IntersectionObserver' in window)) return;
+  const statusbalk = parseFloat(getComputedStyle(balk).top) || 0;
   new IntersectionObserver(([ingang]) => balk.classList.toggle('is-vast', !ingang.isIntersecting), {
-    rootMargin: '-8px 0px 0px 0px'
+    rootMargin: `-${Math.round(statusbalk) + 8}px 0px 0px 0px`
   }).observe(el('plaats'));
 }
 
