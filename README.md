@@ -62,7 +62,7 @@ node dev/maak-fixture.mjs          # eenmalig, schrijft dev/fixture.json
 # open http://localhost:8000/?mock=1
 ```
 
-De fixture bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
+De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. Hij bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft; "reikt niet zo ver" zie je op morgen. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
 
 ## De modelcatalogus controleren
 
