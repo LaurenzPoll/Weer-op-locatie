@@ -24,6 +24,7 @@ import {
   tekenRaadhuis,
   tekenKasteel,
   tekenHuizen,
+  tekenVerteStad,
   tekenKerstboom,
   tekenBushalte,
   tekenLantaarns,
@@ -225,7 +226,7 @@ export function maakScene(canvas) {
     weer: 'wolk',
     beeld: null,
     lucht: null,
-    stad: { huizen: [], bomen: [] },
+    stad: { huizen: [], bomen: [], verte: [] },
     wolken: [],
     druppels: [],
     vlokken: [],
@@ -249,14 +250,25 @@ export function maakScene(canvas) {
     const rnd = mulberry32(11);
     const huizen = [];
     const bomen = [];
+    // Elk gat tussen de gebouwen wordt helemaal gevuld: huizen van wisselende
+    // breedte, en is er een reepje over, dan een boom.
     let x = -4;
     while (x < W) {
-      const b = 9 + Math.floor(rnd() * 7);
-      if (!vrij(x, x + b)) {
-        x += 2;
+      const binnen = bezet.find(([l, r]) => x >= l && x <= r);
+      if (binnen) {
+        x = binnen[1] + 1;
         continue;
       }
-      const h = 8 + Math.floor(rnd() * 6);
+      const eind = Math.min(W + 4, ...bezet.filter(([l]) => l > x).map(([l]) => l - 1));
+      const ruimte = eind - x + 1;
+      if (ruimte < 6) {
+        if (ruimte >= 3) bomen.push(x + (ruimte - 1) / 2);
+        x = eind + 1;
+        continue;
+      }
+      let b = 8 + Math.floor(rnd() * 8);
+      if (ruimte - b < 6) b = ruimte <= 18 ? ruimte : ruimte - 6;
+      const h = 8 + Math.floor(rnd() * 8);
       const muur = ['#8c4a3a', '#a4583f', '#cdb888', '#7a3f33', '#bca676', '#96503d'][Math.floor(rnd() * 6)];
       // Ramen onthouden hun hoogte vanaf de grond, zodat ze meeschuiven als de kaart groeit.
       const ramen = [];
@@ -264,13 +276,16 @@ export function maakScene(canvas) {
         for (let ry = h - 2; ry > 4; ry -= 4) ramen.push([rx, ry, rnd() < 0.55]);
       huizen.push({ x, b, h, muur, ramen, deur: x + Math.floor(b / 2) - 1 });
       x += b;
-      if (rnd() < 0.3) {
-        const gat = 4 + Math.floor(rnd() * 4);
-        if (vrij(x, x + gat)) bomen.push(x + gat / 2);
-        x += gat;
-      }
     }
-    s.stad = { huizen, bomen };
+    // Daarachter, in de verte, nog een rij daken en een paar hogere blokken.
+    const verte = [];
+    for (let vx = -6; vx < W; ) {
+      const b = 7 + Math.floor(rnd() * 12);
+      const hoog = rnd() < 0.15;
+      verte.push({ x: vx, b, h: hoog ? 20 + Math.floor(rnd() * 8) : 10 + Math.floor(rnd() * 9), punt: !hoog && rnd() < 0.6, k: Math.floor(rnd() * 3), zaad: Math.floor(rnd() * 1000) });
+      vx += b + (rnd() < 0.2 ? 2 : 0);
+    }
+    s.stad = { huizen, bomen, verte };
   }
 
   function maakWeer() {
@@ -397,6 +412,7 @@ export function maakScene(canvas) {
     const terril = Math.round(W * 0.78);
     tekenTerril(b, terril, { ...F, tint: (c, f = 0.12) => kl(meng(c, horizon, Math.min(0.85, f + 0.38))) }, terril + 60);
     tekenHeuvels(b, meng(horizon, '#2f4f3a', 0.45));
+    tekenVerteStad(b, s.stad.verte, F);
     tekenSchachtbok(b, plek.schacht, F);
     tekenKasteel(b, plek.kasteel, F);
     if (plek.raad !== undefined) tekenRaadhuis(b, plek.raad, F);

@@ -457,6 +457,27 @@ export function tekenHuizen(b, stad, F) {
   }
 }
 
+// De stad in de verte: daken en een paar hogere blokken, vaag in de kleur van
+// de horizon. 's Avonds brandt hier en daar een raam.
+export function tekenVerteStad(b, rij, F) {
+  const { GROND } = maat;
+  const kleuren = ['#6d5750', '#7d6a58', '#5f5a5e'].map((c) => F.tint(c, 0.55));
+  const daken = F.tint('#3a3f4a', 0.55);
+  const wit = F.tint('#eef2f7', 0.3);
+  const raamAan = licht('#e2bf6a');
+  for (const d of rij) {
+    const top = GROND - d.h;
+    b.rect(d.x, top, d.b, d.h, kleuren[d.k]);
+    if (d.punt) {
+      const dakH = Math.min(4, Math.ceil(d.b / 2));
+      for (let i = 0; i < dakH; i++) b.rect(d.x + i, top - 1 - i, d.b - 2 * i, 1, F.sneeuw && i === dakH - 1 ? wit : daken);
+    } else b.rect(d.x, top, d.b, 1, F.sneeuw ? wit : daken);
+    if (F.lampen)
+      for (let y = top + 2; y < GROND - 2; y += 3)
+        for (let x = d.x + 1; x < d.x + d.b - 1; x += 2) if ((x * 7 + y * 3 + d.zaad) % 9 === 0) b.px(x, y, raamAan);
+  }
+}
+
 // De kerstboom op het plein, met knipperende lichtjes en een ster.
 export function tekenKerstboom(b, x, F) {
   const { GROND } = maat;
