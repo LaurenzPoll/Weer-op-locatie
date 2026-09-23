@@ -14,6 +14,10 @@ import {
   FORECAST_DAYS,
   LOCATION,
   TARGET_DATE,
+  TERUGBLIK_KEY,
+  TERUGBLIK_TTL_MS,
+  UITSLAG_DAGEN,
+  dagenTerug,
   datumVoor
 } from './config.js';
 import { MODELLEN } from './models.js';
@@ -74,7 +78,16 @@ export function bouwUrl(modelId, { kern = false } = {}) {
 // De guard op `location` houdt dit bestand importeerbaar buiten de browser,
 // zodat scripts/check-models.mjs dezelfde URL-opbouw kan gebruiken.
 const mockAan = typeof location !== 'undefined' && new URLSearchParams(location.search).has('mock');
-let mockData = null;
+let fixtureBelofte = null;
+
+// Eén keer ophalen voor alle modellen samen, in plaats van één keer per model.
+function laadFixture() {
+  fixtureBelofte ??= fetch('./dev/fixture.json').then((res) => {
+    if (!res.ok) throw new Error(`fixture.json niet gevonden (HTTP ${res.status})`);
+    return res.json();
+  });
+  return fixtureBelofte;
+}
 
 // De fixture is gemaakt rond één vaste doeldag. We schuiven zijn tijdas zo op
 // dat die doeldag op vandaag valt; dan heeft de mockmodus altijd iets te tonen.
@@ -84,18 +97,16 @@ function verschuifDatum(iso, dagen) {
   return d.toISOString().slice(0, 10) + iso.slice(10);
 }
 
+function mockVerschil(fixture) {
+  return Math.round((new Date(`${datumVoor('vandaag')}T12:00:00Z`) - new Date(`${fixture.__doel}T12:00:00Z`)) / 86400000);
+}
+
 async function haalMock(modelId) {
-  if (!mockData) {
-    const res = await fetch('./dev/fixture.json');
-    if (!res.ok) throw new Error(`fixture.json niet gevonden (HTTP ${res.status})`);
-    mockData = await res.json();
-  }
+  const mockData = await laadFixture();
   const entry = mockData[modelId];
   if (!entry) throw new Error('geen mockdata voor dit model');
   if (entry.__fout) throw new Error(entry.__fout);
-  const verschil = Math.round(
-    (new Date(`${datumVoor('vandaag')}T12:00:00Z`) - new Date(`${mockData.__doel}T12:00:00Z`)) / 86400000
-  );
+  const verschil = mockVerschil(mockData);
   const schuif = (tijden) => (tijden ?? []).map((t) => verschuifDatum(t, verschil));
   return {
     ...entry,
@@ -287,4 +298,89 @@ export async function laadVerwachtingen({ forceer = false } = {}) {
     }
     throw fout;
   }
+}
+
+// --- terugblik ------------------------------------------------------------
+// Voor "Wie had gelijk?": wat Open-Meteo achteraf over de afgelopen dagen zegt.
+// Dat is zelf ook een analyse uit de modellen, geen meting van een regenmeter;
+// de app zegt dat er eerlijk bij.
+
+const locatieSleutel = () => `${LOCATION.latitude},${LOCATION.longitude}`;
+
+/** Van een Open-Meteo-antwoord naar { datum: { t, n } }, alleen voor dagen die voorbij zijn. */
+function naarDagen(ruw, verschil = 0) {
+  const d = ruw?.daily ?? {};
+  const vandaag = datumVoor('vandaag');
+  const dagen = {};
+  (d.time ?? []).forEach((tijd, i) => {
+    const datum = verschil ? verschuifDatum(tijd, verschil) : tijd;
+    const t = getal(d.temperature_2m_max, i);
+    const n = getal(d.precipitation_sum, i);
+    if (datum < vandaag && t !== null && n !== null) dagen[datum] = { t, n };
+  });
+  return dagen;
+}
+
+function leesTerugblik() {
+  try {
+    const cache = JSON.parse(localStorage.getItem(TERUGBLIK_KEY));
+    return cache && cache.locatie === locatieSleutel() ? cache : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * De werkelijke middagtemperatuur en neerslag van de afgelopen dagen, uit de
+ * cache zolang die vers is en gisteren al bevat.
+ */
+export async function laadTerugblik() {
+  if (mockAan) {
+    const fixture = await laadFixture();
+    return naarDagen(fixture.__terugblik, mockVerschil(fixture));
+  }
+  const cache = leesTerugblik();
+  const vers = cache && Date.now() - new Date(cache.opgehaaldOp).getTime() < TERUGBLIK_TTL_MS;
+  if (vers && cache.dagen[dagenTerug(1)]) return cache.dagen;
+
+  const p = new URLSearchParams({
+    latitude: String(LOCATION.latitude),
+    longitude: String(LOCATION.longitude),
+    timezone: LOCATION.timezone,
+    past_days: String(UITSLAG_DAGEN),
+    forecast_days: '1',
+    daily: 'temperature_2m_max,precipitation_sum',
+    models: 'best_match'
+  });
+  try {
+    const dagen = naarDagen(await haalOp(`${API_BASE}?${p.toString()}`));
+    try {
+      localStorage.setItem(
+        TERUGBLIK_KEY,
+        JSON.stringify({ locatie: locatieSleutel(), opgehaaldOp: new Date().toISOString(), dagen })
+      );
+    } catch {
+      // Zonder opslag halen we hem de volgende keer gewoon opnieuw op.
+    }
+    return dagen;
+  } catch (fout) {
+    if (cache) return cache.dagen;
+    throw fout;
+  }
+}
+
+/**
+ * In de mockmodus komen ook de verwachtingen van de afgelopen week uit de
+ * fixture, zodat "Wie had gelijk?" meteen iets te tonen heeft. Ze worden nooit
+ * in de echte historie geschreven. Buiten de mockmodus: null.
+ */
+export async function laadMockHistorie() {
+  if (!mockAan) return null;
+  const fixture = await laadFixture();
+  const verschil = mockVerschil(fixture);
+  return (fixture.__historie ?? []).map((e) => ({
+    ...e,
+    datum: verschuifDatum(e.datum, verschil),
+    ts: new Date(new Date(e.ts).getTime() + verschil * 86400000).toISOString()
+  }));
 }

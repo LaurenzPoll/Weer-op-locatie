@@ -187,6 +187,84 @@ for (const m of MODELLEN) {
   };
 }
 
+// --- "Wie had gelijk?" ------------------------------------------------------
+// Een week terug: wat er werkelijk gebeurde (de terugblik, zoals Open-Meteo die
+// met past_days teruggeeft) en wat elk model er vooraf van verwachtte. Elk model
+// heeft een eigen karakter — de een is structureel te warm, de ander ziet vaker
+// regen — zodat de stand ergens over gaat. KMA en ACCESS ontbreken, net als in
+// het echt; Best Match staat erin om te zien dat hij buiten mededinging blijft.
+const KARAKTER = {
+  ecmwf_ifs025: [0.2, 0.7, 1.0],
+  ecmwf_ifs: [0.1, 0.6, 1.0],
+  ecmwf_aifs025_single: [-0.4, 0.6, 0.8],
+  ncep_gfs_seamless: [0.6, 1.2, 1.6],
+  ncep_aigfs025: [-0.3, 1.0, 0.9],
+  ncep_hgefs025_ensemble_mean: [-0.2, 0.8, 1.1],
+  dwd_icon_global: [0.3, 0.9, 1.1],
+  ukmo_global_deterministic_10km: [-0.5, 0.9, 1.2],
+  cmc_gem_gdps: [1.1, 1.1, 1.3],
+  jma_gsm: [-1.2, 1.3, 0.7],
+  cma_grapes_global: [1.8, 1.5, 1.8],
+  dwd_icon_eu: [0.2, 0.7, 1.0],
+  dwd_icon_d2: [0.0, 0.5, 1.0],
+  knmi_harmonie_arome_netherlands: [-0.1, 0.5, 1.0],
+  knmi_harmonie_arome_europe: [0.1, 0.6, 1.1],
+  dmi_harmonie_arome_europe: [-0.3, 0.7, 1.1],
+  meteofrance_arpege_europe: [0.5, 0.9, 1.2],
+  meteofrance_arome_france_hd: [0.2, 0.8, 1.3],
+  chmi_aladin_central_europe_2km: [0.4, 0.8, 1.1],
+  best_match: [0.0, 0.5, 1.0]
+};
+
+function dagVan(iso, n) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+const mediaanVan = (lijst) => {
+  const s = [...lijst].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+const terugblik = { daily: { time: [], temperature_2m_max: [], precipitation_sum: [] } };
+const historie = [];
+const weekRnd = zaad('terugblik');
+for (let terug = 7; terug >= 0; terug--) {
+  const datum = dagVan(DOEL, -terug);
+  const t = Number((18 + weekRnd() * 7).toFixed(1));
+  const n = Number((weekRnd() < 0.45 ? 1 + weekRnd() * 7 : weekRnd() * 0.6).toFixed(1));
+  terugblik.daily.time.push(datum);
+  terugblik.daily.temperature_2m_max.push(t);
+  terugblik.daily.precipitation_sum.push(n);
+  if (terug === 0) continue; // vandaag is nog geen verleden
+
+  // Meestal opgehaald de avond ervoor; twee dagen alleen die ochtend zelf, zodat
+  // ook die terugval in beeld komt.
+  const zelfdeDag = terug === 5 || terug === 2;
+  const ts = zelfdeDag ? `${datum}T06:10:00.000Z` : `${dagVan(datum, -1)}T18:40:00.000Z`;
+  const modellen = {};
+  for (const [id, [afwijking, ruis, regen]] of Object.entries(KARAKTER)) {
+    const r = zaad(id + datum);
+    let nm = n * regen * (0.6 + r() * 0.8);
+    // Af en toe verwisselt een model droog en nat.
+    if (r() < 0.12) nm = n >= 1 ? r() * 0.5 : 1 + r() * 4;
+    modellen[id] = {
+      t: Number((t + afwijking + (r() - 0.5) * 2 * ruis).toFixed(1)),
+      n: Number(nm.toFixed(1))
+    };
+  }
+  historie.push({
+    ts,
+    datum,
+    mediaanTemp: mediaanVan(Object.values(modellen).map((v) => v.t)),
+    mediaanNeerslag: mediaanVan(Object.values(modellen).map((v) => v.n)),
+    modellen
+  });
+}
+fixture.__terugblik = terugblik;
+fixture.__historie = historie;
+
 const pad = new URL('./fixture.json', import.meta.url);
 writeFileSync(pad, JSON.stringify(fixture));
-console.log(`fixture.json geschreven: ${Object.keys(fixture).length - 1} modellen`);
+console.log(`fixture.json geschreven: ${MODELLEN.length} modellen, ${historie.length} dagen terugblik`);

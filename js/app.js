@@ -1,15 +1,25 @@
 // Opbouw van de pagina. Haalt de verwachtingen op, rekent de spreiding uit en
 // zet alles op het scherm.
 
-import { DAG, DAGKEUZES, LOCATION, TARGET_DATE, VENSTER, datumVoor, kiesDag } from './config.js';
+import { DAG, DAGKEUZES, LOCATION, TARGET_DATE, VENSTER, dagenTerug, datumVoor, kiesDag } from './config.js';
 import { GROEPEN, MODELLEN, kortNaam } from './models.js';
-import { laadVerwachtingen } from './api.js';
+import { laadMockHistorie, laadTerugblik, laadVerwachtingen } from './api.js';
 import { mediaan, samenvatting } from './stats.js';
 import { puntenWolk, trendLijn, uurGrafiek, uurRooster } from './charts.js';
 import * as f from './format.js';
 import { weercode, windstreek } from './weercodes.js';
 import { icoon, icoonVoorCode } from './iconen.js';
-import { bewaarMeting, leesHistorie, modelVerschuiving, trendPunten, verschuiving } from './history.js';
+import { FIGUREN, MEDAILLES, PIXEL, figuurVoor, pixelSvg, zetPixel } from './pixels.js';
+import { maakScene } from './scene.js';
+import {
+  bewaarMeting,
+  leesHistorie,
+  leesVerleden,
+  modelVerschuiving,
+  trendPunten,
+  verschuiving
+} from './history.js';
+import { NAT_MM, RAAK_GRADEN, beoordeel, ranglijst } from './uitslag.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
 const el = (id) => document.getElementById(id);
@@ -262,6 +272,128 @@ function trendHtml(historie) {
   return rijen.join('');
 }
 
+// ------------------------------------------------------------- wie had gelijk
+// Het podium van gisteren en de stand over de afgelopen week. De maatstaf is
+// Open-Meteo's eigen terugblik: een analyse, geen regenmeter. Dat staat erbij.
+
+function figuurTegel(id, klasse = '') {
+  const figuur = FIGUREN[figuurVoor(modellenPerId[id])];
+  return `<span class="figuur-tegel${klasse ? ` ${klasse}` : ''}" aria-hidden="true">${pixelSvg(figuur.rijen)}</span>`;
+}
+
+const regenTekst = (n) => (n >= NAT_MM ? `${f.mm(n)} regen` : 'droog');
+
+function dagLabel(datum) {
+  if (datum === dagenTerug(1)) return 'Gisteren';
+  const tekst = f.weekdagDatum(datum);
+  return tekst.charAt(0).toUpperCase() + tekst.slice(1);
+}
+
+/** Waar een model naast zat, in woorden: te warm of te koud, en de regen. */
+function naastTekst(r, gezien) {
+  const delen = [];
+  if (Math.abs(r.dT) >= 0.5) delen.push(`${f.graden(Math.abs(r.dT))} °C te ${r.dT > 0 ? 'warm' : 'koud'}`);
+  if (!r.regenGoed)
+    delen.push(r.n >= NAT_MM ? `gaf ${f.mm(r.n)} regen die niet viel` : `hield het droog terwijl er ${f.mm(gezien.n)} viel`);
+  return delen.join(' en ') || 'net iets verder ernaast dan de rest';
+}
+
+function podiumHtml(dag) {
+  const { gezien, rijen } = dag;
+  const plekken = rijen
+    .slice(0, 3)
+    .map(
+      (r, i) => `
+      <li class="podium-rij">
+        ${figuurTegel(r.id)}
+        <span class="podium-naam"><strong>${esc(modellenPerId[r.id]?.naam ?? r.id)}</strong>
+          <span>verwachtte ${esc(f.temp(r.t))} en ${esc(regenTekst(r.n))}</span></span>
+        <span class="medaille" role="img" aria-label="${i + 1}e plaats">${pixelSvg(MEDAILLES[i + 1])}</span>
+      </li>`
+    )
+    .join('');
+  const laatste = rijen.length > 3 ? rijen.at(-1) : null;
+  const bron = dag.dagErvoor
+    ? `de verwachting van ${f.weekdagTijd(dag.punt.ts)}`
+    : `de verwachting van die ochtend, ${f.tijdstip(dag.punt.ts)}`;
+  const nat = gezien.n >= NAT_MM;
+  return `
+    <div class="paneel podium">
+      <p class="tegel-label">${esc(dagLabel(dag.datum))}</p>
+      <p class="podium-gezien">Het werd <strong>${esc(f.temp(gezien.t))}</strong> en
+        <strong>${nat ? `nat, ${esc(f.mm(gezien.n))}` : 'droog'}</strong>${
+          !nat && gezien.n > 0 ? ` <span>(${esc(f.mm(gezien.n))})</span>` : ''
+        }.</p>
+      <ol class="podium-lijst">${plekken}</ol>
+      ${
+        laatste
+          ? `<p class="podium-laatste">Verst ernaast: <strong>${esc(kortNaam(laatste.id))}</strong>, ${esc(
+              naastTekst(laatste, gezien)
+            )}.</p>`
+          : ''
+      }
+      <p class="uitslag-klein">Beoordeeld op ${esc(bron)}.</p>
+    </div>`;
+}
+
+function standHtml(dagen) {
+  const rang = ranglijst(dagen);
+  const datums = dagen.map((d) => d.datum).reverse();
+  const rij = (s, i) => `
+      <li class="stand-rij">
+        <span class="stand-plek">${
+          i < 3 ? `<span role="img" aria-label="${i + 1}e plaats">${pixelSvg(MEDAILLES[i + 1])}</span>` : i + 1
+        }</span>
+        ${figuurTegel(s.id, 'klein')}
+        <span class="stand-naam">${esc(kortNaam(s.id))}</span>
+        <span class="stand-reeks" role="img" aria-label="${s.raak} van de ${s.dagen} dagen raak">${datums
+          .map((d) => `<i class="${s.reeks[d] === undefined ? 'geen' : s.reeks[d] ? 'raak' : 'mis'}"></i>`)
+          .join('')}</span>
+        <span class="stand-cijfer">±${esc(f.graden(s.gemAfwijking))}°</span>
+      </li>`;
+  const rest = rang.slice(5);
+  return `
+    <div class="paneel stand">
+      <p class="tegel-label">De stand over ${dagen.length} dagen</p>
+      <ol class="stand-lijst">${rang.slice(0, 5).map(rij).join('')}</ol>
+      ${
+        rest.length
+          ? `<details class="meer"><summary>Alle ${rang.length} modellen</summary>
+              <ol class="stand-lijst">${rest.map((s, i) => rij(s, i + 5)).join('')}</ol></details>`
+          : ''
+      }
+      <p class="uitslag-klein">Eén vakje per dag, oudste links. Gevuld is raak: binnen ${esc(
+        String(RAAK_GRADEN).replace('.', ',')
+      )} °C en goed over droog of nat. ± is de gemiddelde afwijking in middagtemperatuur.</p>
+    </div>`;
+}
+
+const UITSLAG_NOOT = `<p class="uitslag-klein">De maatstaf is Open-Meteo’s eigen terugblik op die dag: een analyse uit
+  dezelfde modellen, geen regenmeter. Daarom doet Best Match niet mee. Alles blijft op dit apparaat.</p>`;
+
+let uitslagGeladen = false;
+
+async function laadUitslag() {
+  let html;
+  try {
+    const [terugblik, mockHistorie] = await Promise.all([laadTerugblik(), laadMockHistorie()]);
+    const dagen = beoordeel(mockHistorie ?? leesVerleden(), terugblik);
+    html = dagen.length
+      ? podiumHtml(dagen[0]) + (dagen.length > 1 ? standHtml(dagen) : '') + UITSLAG_NOOT
+      : `<div class="paneel"><p class="leeg">Morgen staat hier wie er vandaag het dichtst bij zat. De app bewaart
+          elke verwachting op dit apparaat en legt die de volgende dag naast wat er werkelijk gebeurde.</p></div>`;
+  } catch {
+    html = `<div class="paneel"><p class="leeg">${
+      leesVerleden().length
+        ? 'De terugblik op de afgelopen dagen kon niet worden opgehaald. Probeer het later opnieuw met verversen.'
+        : 'Morgen staat hier wie er vandaag het dichtst bij zat.'
+    }</p></div>`;
+  }
+  el('uitslag-inhoud').innerHTML = html;
+  el('uitslag').hidden = false;
+  uitslagGeladen = true;
+}
+
 // --------------------------------------------------------------------- kaarten
 
 function waardenHtml(r) {
@@ -360,6 +492,8 @@ function kaartHtml(r, historie, grafiekBreedte) {
   const metaDelen = [m.aanbieder, m.resolutie, `bijgewerkt ${m.update}`];
   if (m.horizon) metaDelen.push(`bereik ~${String(m.horizon).replace('.', ',')} dagen`);
 
+  const figuur = FIGUREN[figuurVoor(m)];
+
   const merken = [
     m.anker ? '<span class="merk">anker</span>' : '',
     m.thuismodel ? '<span class="merk">thuismodel</span>' : '',
@@ -370,7 +504,11 @@ function kaartHtml(r, historie, grafiekBreedte) {
   return `
 <details class="model" data-status="${r.status}" id="model-${esc(r.id)}">
   <summary>
-    <span class="vlag" aria-hidden="true">${m.vlag}</span>
+    ${
+      PIXEL
+        ? `<span class="vlag figuur-tegel" aria-hidden="true">${pixelSvg(figuur.rijen)}</span>`
+        : `<span class="vlag" aria-hidden="true">${m.vlag}</span>`
+    }
     <span class="model-titel">
       <span class="model-naam">${esc(m.naam).replace(/(\d) (km)\b/g, '$1&nbsp;$2')}</span>
       ${rijSubHtml(r, m, s)}
@@ -379,6 +517,10 @@ function kaartHtml(r, historie, grafiekBreedte) {
     <svg class="pijl" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.2 2.5 7.8 6l-3.6 3.5"/></svg>
   </summary>
   <div class="model-inhoud">
+    <div class="figuur">
+      <span class="figuur-tegel" aria-hidden="true">${pixelSvg(figuur.rijen)}</span>
+      <p><strong>${esc(figuur.naam)}.</strong> ${esc(figuur.zin)}</p>
+    </div>
     <p class="kaart-meta">${esc(metaDelen.join(' · '))}</p>
     ${merken ? `<p class="merken">${merken}</p>` : ''}
     ${r.status === 'ok' ? waardenHtml(r) : uitlegStatusHtml(r, m)}
@@ -764,6 +906,7 @@ function render(resultaten, meta) {
   const trendInhoud = trendHtml(meta.historie);
   el('trend').hidden = false;
   el('trend-inhoud').innerHTML = trendInhoud;
+  plaatsScene();
 
   const delen = [`bijgewerkt ${f.datumTijd(meta.opgehaaldOp)}`];
   if (meta.offline) delen.push('geen verbinding — laatst bekende gegevens');
@@ -784,6 +927,8 @@ async function laad({ forceer = false } = {}) {
     if (!uitCache) Object.entries(perDag).forEach(([datum, res]) => bewaarMeting(res, datum));
     if (beurt !== laadBeurt) return;
     render(resultaten, { opgehaaldOp, uitCache, offline, historie: leesHistorie() });
+    // Na een verse ophaal kan er een nieuwe voorbije dag te beoordelen zijn.
+    if (forceer || !uitslagGeladen) laadUitslag();
   } catch (fout) {
     if (beurt !== laadBeurt) return;
     zetStatus(`ophalen mislukt: ${fout.message}`, true);
@@ -868,6 +1013,113 @@ function zetTooltipOp() {
   document.addEventListener('keydown', (e) => e.key === 'Escape' && verberg());
 }
 
+// ------------------------------------------------------------------- 8-bit
+// Een paasei: tik vijf keer op HEERLEN (of toets de Konami-code) en de app gaat
+// over op pixels. De grote letters worden een pixelletter, de iconen pixelkunst,
+// de vlaggen in de lijst de figuren van de modellen, en achter de bovenste kaart
+// verschijnt Heerlen in pixels, met het weer van de modellen erin.
+
+const MODUS_SLEUTEL = 'weer-op-locatie:8bit';
+const is8bit = () => document.documentElement.dataset.modus === '8bit';
+let scene = null;
+let sceneDoek = null;
+let meldingKlok = null;
+
+function meld(tekst) {
+  const melding = el('melding');
+  melding.textContent = tekst;
+  melding.classList.add('zichtbaar');
+  clearTimeout(meldingKlok);
+  meldingKlok = setTimeout(() => melding.classList.remove('zichtbaar'), 3200);
+}
+
+function laadPixelletter() {
+  if (document.getElementById('pixelletter')) return;
+  const link = document.createElement('link');
+  link.id = 'pixelletter';
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap';
+  document.head.append(link);
+}
+
+// De scène vult de bovenkant van de kaart tot vlak boven de stippenstrip; de
+// strip schuift zoveel omlaag dat de skyline ertussen past.
+function plaatsScene() {
+  if (!scene) return;
+  const lucht = el('consensus');
+  const koor = lucht.querySelector('.koor');
+  if (!is8bit() || !koor) {
+    sceneDoek.hidden = true;
+    scene.speel(false);
+    return;
+  }
+  sceneDoek.hidden = false;
+  const breedte = lucht.clientWidth;
+  const schaal = breedte >= 600 ? 3 : 2;
+  // Het hoogste gebouw (de kerk, 57 pixels) plus de straat, en wat lucht.
+  lucht.style.setProperty('--skyline', `${(57 + 14 + 3) * schaal + 8}px`);
+  // Gemeten vanaf de kaart zelf: offsetTop zou vanaf het binnenvak tellen.
+  const tot = koor.getBoundingClientRect().top - lucht.getBoundingClientRect().top;
+  scene.maat({ breedte, hoogte: tot - 6, schaal });
+  scene.zetWeer(lucht.dataset.lucht);
+  scene.speel(true);
+}
+
+function zet8bit(aan, { melden = true } = {}) {
+  if (aan) document.documentElement.dataset.modus = '8bit';
+  else delete document.documentElement.dataset.modus;
+  zetPixel(aan);
+  if (aan) laadPixelletter();
+  try {
+    if (aan) localStorage.setItem(MODUS_SLEUTEL, '1');
+    else localStorage.removeItem(MODUS_SLEUTEL);
+  } catch {
+    // Niet kunnen onthouden: dan geldt hij alleen voor dit bezoek.
+  }
+  if (aan && !scene) {
+    sceneDoek = document.createElement('canvas');
+    sceneDoek.className = 'lucht-scene';
+    sceneDoek.setAttribute('aria-hidden', 'true');
+    el('consensus').prepend(sceneDoek);
+    scene = maakScene(sceneDoek);
+  }
+  if (laatsteRender) render(laatsteRender.resultaten, laatsteRender.meta);
+  else plaatsScene();
+  if (melden) meld(aan ? '8-bit aan. Tik nog eens vijf keer op HEERLEN om terug te gaan.' : '8-bit uit.');
+}
+
+function zet8bitOp() {
+  let tikken = [];
+  el('plaats').addEventListener('click', () => {
+    const nu = Date.now();
+    tikken = [...tikken.filter((t) => nu - t < 2500), nu];
+    if (tikken.length >= 5) {
+      tikken = [];
+      zet8bit(!is8bit());
+    }
+  });
+  const code = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+  let stap = 0;
+  document.addEventListener('keydown', (e) => {
+    const toets = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    // Een extra pijl omhoog aan het begin mag: twee keer omhoog blijft twee keer omhoog.
+    if (toets === code[stap]) stap++;
+    else if (toets === code[0]) stap = stap === 2 ? 2 : 1;
+    else stap = 0;
+    if (stap === code.length) {
+      stap = 0;
+      zet8bit(!is8bit());
+    }
+  });
+  let bewaard = false;
+  try {
+    bewaard = localStorage.getItem(MODUS_SLEUTEL) === '1';
+  } catch {
+    // Zonder opslag begint de app gewoon zonder pixels.
+  }
+  if (bewaard) zet8bit(true, { melden: false });
+}
+
 // Als de grote titel wegscrolt, verschijnt de plaatsnaam klein in de balk —
 // zoals een iOS-navigatiebalk dat doet. Op het beginscherm verdwijnt hij al
 // onder de statusbalk, dus die strook telt mee.
@@ -901,6 +1153,7 @@ function start() {
   zetTooltipOp();
   zetBalkOp();
   zetModelLinksOp();
+  zet8bitOp();
 
   // Draait de telefoon of verandert het venster van breedte, dan tekenen we de
   // grafieken opnieuw op de nieuwe maat.

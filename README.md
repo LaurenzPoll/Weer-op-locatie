@@ -24,10 +24,23 @@ Een gewone weerapp geeft je één getal, en verzwijgt hoe zeker dat getal is. Oo
 | Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? Alle uren passen naast elkaar op een telefoon, met het dagtotaal onder de modelnaam. Tik op een vakje voor de waarde |
 | Spreiding | Elk model één stip op één as, met de mediaan en de middelste helft: cluster of chaos in één blik |
 | Trend | Schoof de verwachting de laatste dagen op? (lokaal bijgehouden) |
-| Model voor model | Een lijst in iOS-stijl; tik op een model voor zijn waarden, uurverloop en waarom het in de lijst hoort |
+| Wie had gelijk? | Elke dag de verwachting van de dag ervoor naast wat er werkelijk gebeurde: het podium van gisteren, wie er het verst naast zat, en de stand over een week |
+| Model voor model | Een lijst in iOS-stijl; tik op een model voor zijn waarden, uurverloop, zijn figuur en waarom het in de lijst hoort |
 | Tabel | Alle waarden naast elkaar, ook voor schermlezers |
 
 Elk model krijgt een statuschip, zodat een ontbrekende waarde altijd verklaard is: **actueel**, **haalt deze dag nog niet**, **geen dekking op deze plek** of **ophalen mislukt**.
+
+Elk soort model heeft ook een figuur in pixelkunst, gekozen op gedrag en niet op herkomst: de **uil** (ECMWF, het anker), de **haas** (GFS: snel en springerig), de **schildpad** (de andere globale modellen, met de hele wereld op zijn rug), de **spin** (de regionale modellen en hun fijnmazige web), de **robot** (de AI-modellen), de **zwerm** (het ensemblegemiddelde) en de **ekster** (Best Match, die het glimmendste stukje van elk model verzamelt). De sprites staan als rasters van 16 × 16 in [`js/pixels.js`](js/pixels.js); er zijn geen afbeeldingen.
+
+## Wie had gelijk?
+
+De app bewaart elke verwachting een week lang op het apparaat. Voor elke voorbije dag pakt hij de laatste verwachting van de dag ervoor (of, als de app die dag niet open was, de vroegste van de dag zelf) en legt die naast wat er gebeurde. Een model is **raak** als het binnen 1,5 °C van de werkelijke middagtemperatuur zat én goed was over droog of nat (de grens is 1 mm, dezelfde als in het oordeel bovenaan). De rangorde telt de afwijking in graden, met twee strafpunten voor droog en nat verwisselen.
+
+De maatstaf is Open-Meteo's eigen terugblik op die dag (`past_days` met Best Match), één extra verzoek per zes uur. Dat is een analyse uit dezelfde modellen en geen meting van een regenmeter; de app zegt dat erbij, en Best Match doet daarom niet mee.
+
+## 8-bit
+
+Tik vijf keer op **HEERLEN**, of toets de Konami-code (↑ ↑ ↓ ↓ ← → ← → B A), en de app gaat over op pixels: een pixelletter voor de grote titels, pixeliconen, de figuren in plaats van de vlaggen, vierkante hoeken, en achter de bovenste kaart Heerlen in pixels. Het Glaspaleis, het Maankwartier met de Heliostaat, de kerktoren, de schachtbok, de terril en een rij huizen van baksteen en mergel, met het weer van de modellen erin: wolken, regen met een paraplu, een fietser als het droog is, bliksem, sneeuw op de daken. Nog eens vijf keer tikken zet het weer uit; de keuze wordt onthouden. Bij *beperk beweging* staat de scène stil.
 
 ## Vandaag of morgen
 
@@ -62,7 +75,7 @@ node dev/maak-fixture.mjs          # eenmalig, schrijft dev/fixture.json
 # open http://localhost:8000/?mock=1
 ```
 
-De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. Hij bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft; "reikt niet zo ver" zie je op morgen. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
+De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. Hij bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft; "reikt niet zo ver" zie je op morgen. Er zit ook een week aan verwachtingen en terugblik in, zodat "Wie had gelijk?" meteen iets te tonen heeft; die week komt alleen uit de fixture en belandt nooit in de echte historie. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
 
 ## De modelcatalogus controleren
 

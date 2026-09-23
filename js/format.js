@@ -66,6 +66,12 @@ export function korteDatum(iso) {
   return `${d.getDate()} ${MAANDEN[d.getMonth()].slice(0, 3)}`;
 }
 
+/** "maandag 20:40" — voor verwachtingen van de afgelopen dagen. */
+export function weekdagTijd(iso) {
+  const d = new Date(iso);
+  return `${DAGEN[d.getDay()]} ${d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 export function tijdstip(iso) {
   const d = new Date(iso);
   return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });

@@ -2,7 +2,7 @@
 // bewust niet door — die cachet de app zelf in localStorage, met een tijdstip
 // erbij, zodat je altijd ziet hoe oud een verwachting is.
 
-const CACHE = 'weer-op-locatie-v4';
+const CACHE = 'weer-op-locatie-v5';
 
 const SCHIL = [
   './',
@@ -17,7 +17,10 @@ const SCHIL = [
   './js/history.js',
   './js/iconen.js',
   './js/models.js',
+  './js/pixels.js',
+  './js/scene.js',
   './js/stats.js',
+  './js/uitslag.js',
   './js/weercodes.js',
   './icons/favicon.svg',
   './icons/icon-192.png',

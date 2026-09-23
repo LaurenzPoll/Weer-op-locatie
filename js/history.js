@@ -3,7 +3,15 @@
 // Alles staat in localStorage, dus per apparaat en per browser — er gaat niets naar
 // een server.
 
-import { HISTORY_KEY, HISTORY_MAX_ENTRIES, HISTORY_MIN_GAP_MS, TARGET_DATE, datumVoor } from './config.js';
+import {
+  HISTORY_KEY,
+  HISTORY_MAX_ENTRIES,
+  HISTORY_MIN_GAP_MS,
+  TARGET_DATE,
+  UITSLAG_DAGEN,
+  dagenTerug,
+  datumVoor
+} from './config.js';
 import { mediaan } from './stats.js';
 
 function leesAlles() {
@@ -46,10 +54,11 @@ export function bewaarMeting(resultaten, datum = TARGET_DATE) {
     modellen: Object.fromEntries(bruikbaar.map((r) => [r.id, { t: r.dag.tempMax, n: r.dag.neerslag }]))
   };
 
-  // De opslag bevat meerdere dagen door elkaar. Dagen die voorbij zijn gooien we
-  // weg; de rest laten we staan, want die hoort bij een andere keuze.
-  const vandaag = datumVoor('vandaag');
-  const anders = leesAlles().filter((e) => e.datum !== datum && e.datum >= vandaag);
+  // De opslag bevat meerdere dagen door elkaar. Voorbije dagen bewaren we nog een
+  // week, zodat "Wie had gelijk?" ze naast de werkelijkheid kan leggen; wat ouder
+  // is gaat weg. De rest laten we staan, want die hoort bij een andere keuze.
+  const grens = dagenTerug(UITSLAG_DAGEN);
+  const anders = leesAlles().filter((e) => e.datum !== datum && e.datum >= grens);
   const historie = leesHistorie(datum);
   const laatste = historie.at(-1);
   if (laatste && Date.now() - new Date(laatste.ts).getTime() < HISTORY_MIN_GAP_MS) {
@@ -59,6 +68,12 @@ export function bewaarMeting(resultaten, datum = TARGET_DATE) {
   }
   schrijfHistorie([...anders, ...historie].sort((a, b) => a.ts.localeCompare(b.ts)));
   return historie;
+}
+
+/** Alle bewaarde verwachtingen voor dagen die al voorbij zijn. */
+export function leesVerleden() {
+  const vandaag = datumVoor('vandaag');
+  return leesAlles().filter((e) => e.datum < vandaag && e.modellen);
 }
 
 /** Het oudste punt dat minstens `minUren` oud is — het ijkpunt voor de trend. */

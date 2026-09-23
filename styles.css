@@ -34,6 +34,9 @@
   --segment-bak: rgba(16, 23, 34, 0.07);
   --segment-duim: #ffffff;
   --schaduw: 0 1px 2px rgba(16, 23, 34, 0.05), 0 10px 28px -20px rgba(16, 23, 34, 0.35);
+  /* Ondergrond voor pixelfiguren: in beide thema's licht, zodat hun donkere
+     contouren zichtbaar blijven. */
+  --tegel: #e3ebf5;
 
   --serie-1: #2a78d6;
   --serie-2: #eb6834;
@@ -51,6 +54,7 @@
   --radius: 20px;
   --sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
   --display: 'Big Shoulders Display', 'Arial Narrow', 'Roboto Condensed', system-ui, sans-serif;
+  --pixelletter: 'Silkscreen', ui-monospace, Menlo, Consolas, monospace;
   --veer: cubic-bezier(0.3, 0.7, 0.2, 1);
 }
 
@@ -72,6 +76,7 @@
     --segment-bak: rgba(238, 242, 247, 0.09);
     --segment-duim: #3a4455;
     --schaduw: 0 0 0 1px rgba(238, 242, 247, 0.06);
+    --tegel: #cfdcec;
     --serie-1: #3987e5;
     --serie-2: #d95926;
     --serie-3: #199e70;
@@ -102,6 +107,7 @@
   --segment-bak: rgba(238, 242, 247, 0.09);
   --segment-duim: #3a4455;
   --schaduw: 0 0 0 1px rgba(238, 242, 247, 0.06);
+  --tegel: #cfdcec;
   --serie-1: #3987e5;
   --serie-2: #d95926;
   --serie-3: #199e70;
@@ -220,6 +226,10 @@ summary {
   line-height: 0.88;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  /* Vijf keer tikken zet de 8-bitmodus aan; dan mag de titel niet inzoomen of selecteren. */
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* De balk plakt net onder de statusbalk in plaats van die strook als eigen
@@ -923,6 +933,130 @@ svg.trend {
   color: var(--text-2);
 }
 
+/* ------------------------------------------------------------ wie had gelijk */
+
+.uitslag {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.podium-gezien {
+  margin: 4px 0 8px;
+  font-size: 17px;
+}
+.podium-gezien span {
+  color: var(--text-2);
+}
+.podium-lijst,
+.stand-lijst {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.podium-rij {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 12px;
+  padding-block: 8px;
+}
+.podium-rij + .podium-rij,
+.stand-rij + .stand-rij {
+  border-top: 1px solid var(--rand);
+}
+.podium-naam {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.podium-naam strong {
+  font-size: 16px;
+  font-weight: 650;
+}
+.podium-naam span {
+  font-size: 13px;
+  color: var(--text-2);
+}
+/* Medailles op twee schermpunten per pixel, net als de figuren. */
+.medaille .px,
+.stand-plek .px {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+.podium-laatste {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.podium-laatste strong {
+  color: var(--text-1);
+}
+.uitslag-klein {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.uitslag > .uitslag-klein {
+  margin: 0 4px;
+}
+
+.stand-rij {
+  display: grid;
+  grid-template-columns: 32px 36px minmax(0, 1fr) auto 42px;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+}
+.stand-plek {
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.figuur-tegel.klein {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+.stand-naam {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 600;
+}
+.stand-reeks {
+  display: inline-flex;
+  gap: 3px;
+}
+.stand-reeks i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px var(--as);
+}
+.stand-reeks i.raak {
+  background: var(--good);
+  box-shadow: none;
+}
+.stand-reeks i.geen {
+  opacity: 0.35;
+}
+.stand-cijfer {
+  text-align: right;
+  font-size: 14px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.stand .meer {
+  margin-top: 2px;
+}
+
 /* ------------------------------------------------------ kleurverlopen rooster */
 
 :root {
@@ -1451,6 +1585,37 @@ svg.trend {
   gap: 14px;
   padding: 2px 16px 18px;
 }
+
+/* Het figuur van een model: welk soort model het is, in één beeld en één zin. */
+.figuur {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.figuur p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+.figuur strong {
+  color: var(--text-1);
+}
+.figuur-tegel {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--tegel);
+}
+/* Precies twee schermpunten per pixel, zodat de randen scherp blijven. */
+.figuur-tegel .px {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
 .kaart-meta {
   margin: 0;
   font-size: 13px;
@@ -1677,6 +1842,156 @@ svg.trend {
 .tip.zichtbaar {
   opacity: 1;
   transform: none;
+}
+
+/* ---------------------------------------------------------------- melding */
+
+.melding {
+  position: fixed;
+  z-index: 35;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  max-width: min(92vw, 420px);
+  transform: translate(-50%, 12px);
+  opacity: 0;
+  pointer-events: none;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: var(--text-1);
+  color: var(--surface-1);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.2s ease, transform 0.3s var(--veer);
+}
+.melding.zichtbaar {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ------------------------------------------------------------------- 8-bit */
+/* Alles hieronder geldt alleen als de 8-bitmodus aan staat (zie app.js). */
+
+.lucht-scene {
+  display: none;
+}
+[data-modus='8bit'] .lucht-scene:not([hidden]) {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+}
+[data-modus='8bit'] .lucht-inhoud {
+  position: relative;
+}
+/* De kaart wordt een straat in Heerlen: de lucht zit in de scène, en daaronder
+   loopt de kaart door in de kleur van het asfalt. */
+[data-modus='8bit'] .lucht {
+  background: #2b3038;
+  box-shadow: none;
+  /* Een harde, pixelige rand houdt witte tekst leesbaar als er een wolk achter drijft. */
+  text-shadow: 0 2px 0 rgba(10, 22, 44, 0.5), 0 -2px 0 rgba(10, 22, 44, 0.35), 2px 0 0 rgba(10, 22, 44, 0.35),
+    -2px 0 0 rgba(10, 22, 44, 0.35);
+}
+[data-modus='8bit'] .lucht-hoofd {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+[data-modus='8bit'] .lucht-beeld {
+  align-items: flex-start;
+  text-align: left;
+}
+[data-modus='8bit'] .lucht .lucht-icoon {
+  display: none;
+}
+[data-modus='8bit'] .lucht .koor {
+  margin-top: var(--skyline, 156px);
+}
+
+[data-modus='8bit'] .kop-plaats {
+  font-family: var(--pixelletter);
+  font-weight: 700;
+  font-size: clamp(34px, 11vw, 52px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+[data-modus='8bit'] .balk-titel {
+  font-family: var(--pixelletter);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+[data-modus='8bit'] .lucht-temp {
+  font-family: var(--pixelletter);
+  font-size: clamp(64px, 20vw, 88px);
+  line-height: 1;
+  /* Een harde slagschaduw, zoals in een oud spel: leesbaar voor elke wolk. */
+  text-shadow: 5px 5px 0 rgba(10, 22, 44, 0.55);
+}
+/* De pixelletter heeft geen mooi gradenteken; een vierkant ringetje wel. */
+[data-modus='8bit'] .lucht-temp .graad {
+  width: 0.16em;
+  height: 0.16em;
+  margin: 0.06em 0 0 0.08em;
+  font-size: inherit;
+  color: transparent;
+  text-shadow: none;
+  box-shadow: inset 0 0 0 0.05em #fff, 4px 4px 0 rgba(10, 22, 44, 0.45);
+  opacity: 0.9;
+}
+[data-modus='8bit'] .sectie-titel {
+  font-family: var(--pixelletter);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+[data-modus='8bit'] .melding {
+  font-family: var(--pixelletter);
+  font-weight: 400;
+  font-size: 12px;
+  border-radius: 0;
+}
+
+/* Vierkante hoeken, zoals op een scherm van toen. */
+[data-modus='8bit'] :is(.lucht, .paneel, .lijst, .segment, .segment button, .rondknop, .oordeel, .oordeel-icoon, .chip,
+    .merk, .waarden, .rooster tbody td, .legenda-balk span, .tip, .figuur-tegel, .koor-band, .koor-baan i, .stand-reeks i) {
+  border-radius: 0;
+}
+[data-modus='8bit'] .segment::before {
+  border-radius: 0;
+}
+
+/* Pixeliconen op precies een of twee schermpunten per pixel. */
+[data-modus='8bit'] .ic {
+  width: 16px;
+  height: 16px;
+}
+[data-modus='8bit'] .model-waarde .ic {
+  width: 32px;
+  height: 32px;
+}
+[data-modus='8bit'] .waarden .weer-icoon {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+}
+[data-modus='8bit'] .model > summary {
+  grid-template-columns: 32px minmax(0, 1fr) auto 12px;
+}
+[data-modus='8bit'] .vlag.figuur-tegel {
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+}
+[data-modus='8bit'] .model + .model > summary {
+  background-size: calc(100% - 60px) 1px;
+  background-position: 60px 0;
 }
 
 /* ---------------------------------------------------------- groter scherm */
