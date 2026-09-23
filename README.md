@@ -40,7 +40,7 @@ De maatstaf is Open-Meteo's eigen terugblik op die dag (`past_days` met Best Mat
 
 ## 8-bit
 
-Tik vijf keer op **HEERLEN**, of toets de Konami-code (↑ ↑ ↓ ↓ ← → ← → B A), en de app gaat over op pixels: een pixelletter voor de grote titels, pixeliconen, de figuren in plaats van de vlaggen, vierkante hoeken, en achter de bovenste kaart Heerlen in pixels. Het Glaspaleis, het Maankwartier met de Heliostaat, de kerktoren, de schachtbok, de terril en een rij huizen van baksteen en mergel, met het weer van de modellen erin: wolken, regen met een paraplu, een fietser als het droog is, bliksem, sneeuw op de daken. Nog eens vijf keer tikken zet het weer uit; de keuze wordt onthouden. Bij *beperk beweging* staat de scène stil.
+Tik vijf keer op **HEERLEN**, of toets de Konami-code (↑ ↑ ↓ ↓ ← → ← → B A), en de app gaat over op pixels: een pixelletter voor de grote titels, pixeliconen, de figuren in plaats van de vlaggen, vierkante hoeken, en achter de bovenste kaart Heerlen in pixels. Het Glaspaleis, het Maankwartier met de Heliostaat, de kerktoren, de schachtbok, de terril en een rij huizen van baksteen en mergel, met het weer van de modellen erin: wolken, regen met een paraplu, een fietser als het droog is, bliksem, sneeuw op de daken. Onder het Maankwartier rijdt de trein, en af en toe komt er een Arriva-bus over de straat. Nog eens vijf keer tikken zet het weer uit; de keuze wordt onthouden. Bij *beperk beweging* staat de scène stil.
 
 ## Vandaag of morgen
 
