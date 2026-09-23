@@ -409,7 +409,7 @@ export function maakScene(canvas) {
 
     // De stad, met in de verte de terril met SnowWorld: vager, in de kleur van
     // de horizon, achter de heuvels.
-    const terril = Math.round(W * 0.78);
+    const terril = Math.round(W * 0.92);
     tekenTerril(b, terril, { ...F, tint: (c, f = 0.12) => kl(meng(c, horizon, Math.min(0.85, f + 0.38))) }, terril + 60);
     tekenHeuvels(b, meng(horizon, '#2f4f3a', 0.45));
     tekenVerteStad(b, s.stad.verte, F);

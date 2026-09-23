@@ -359,20 +359,19 @@ export function tekenRaadhuis(b, x0, F) {
 
 // --------------------------------------------------------- Kasteel Hoensbroek
 
-// Kasteel Hoensbroek in zijn brede gracht: baksteen met banden mergel, twee
-// gedrongen torens met uivormige spitsen bij de poort, links achter een lagere
-// vierkante toren en rechts de hoge ronde donjon met een slanke spits.
+// Kasteel Hoensbroek: baksteen met banden mergel, twee gedrongen torens met
+// uivormige spitsen bij de poort, links achter een lagere vierkante toren en
+// rechts de hoge ronde donjon met een slanke spits.
 export function tekenKasteel(b, x0, F) {
   const { GROND } = maat;
-  const eiland = GROND - 3;
   const baksteen = F.tint('#95503d');
   const mergel = F.tint('#d9d0b5');
   const lei = F.tint('#353c47', 0.1);
   const wit = kl(WIT);
   const donker = kl('#221d1b');
   const toren = (x, w, h) => {
-    b.rect(x, eiland - h, w, h, baksteen);
-    for (let y = eiland - h + 3; y < eiland; y += 5) b.rect(x, y, w, 1, mergel);
+    b.rect(x, GROND - h, w, h, baksteen);
+    for (let y = GROND - h + 3; y < GROND; y += 5) b.rect(x, y, w, 1, mergel);
   };
   const spits = (x, w, voet, hoogte) => {
     for (let i = 0; i < hoogte; i++) {
@@ -386,37 +385,26 @@ export function tekenKasteel(b, x0, F) {
   };
   // Achter: de vierkante toren en de ronde donjon.
   toren(x0 + 3, 6, 22);
-  spits(x0 + 3, 6, eiland - 22, 8);
+  spits(x0 + 3, 6, GROND - 22, 8);
   toren(x0 + 29, 8, 30);
-  b.rect(x0 + 29, eiland - 30, 1, 30, F.tint('#a86250'));
-  b.rect(x0 + 35, eiland - 30, 2, 30, F.tint('#7b4131'));
-  spits(x0 + 29, 8, eiland - 30, 12);
-  for (const y of [eiland - 26, eiland - 19, eiland - 12]) b.rect(x0 + 32, y, 1, 2, raam(F));
-  if (F.feest.koning) vlag(b, x0 + 33, eiland - 51, F);
+  b.rect(x0 + 29, GROND - 30, 1, 30, F.tint('#a86250'));
+  b.rect(x0 + 35, GROND - 30, 2, 30, F.tint('#7b4131'));
+  spits(x0 + 29, 8, GROND - 30, 12);
+  for (const y of [GROND - 26, GROND - 19, GROND - 12]) b.rect(x0 + 32, y, 1, 2, raam(F));
+  if (F.feest.koning) vlag(b, x0 + 33, GROND - 51, F);
   // Het hoofdgebouw met een leien dak.
   toren(x0 + 8, 22, 13);
-  for (let i = 0; i < 3; i++) b.rect(x0 + 8 + i, eiland - 14 - i, 22 - 2 * i, 1, F.sneeuw && i === 2 ? wit : lei);
+  for (let i = 0; i < 3; i++) b.rect(x0 + 8 + i, GROND - 14 - i, 22 - 2 * i, 1, F.sneeuw && i === 2 ? wit : lei);
   for (const rx of [x0 + 10, x0 + 25, x0 + 28])
-    for (const ry of [eiland - 11, eiland - 6]) b.rect(rx, ry, 1, 2, raam(F, rx !== x0 + 28));
+    for (const ry of [GROND - 11, GROND - 6]) b.rect(rx, ry, 1, 2, raam(F, rx !== x0 + 28));
   // Voor: de poorttorens met hun uien.
   for (const tx of [x0 + 12, x0 + 20]) {
     toren(tx, 5, 17);
-    ui(tx, eiland - 17);
-    b.rect(tx + 2, eiland - 13, 1, 2, raam(F));
+    ui(tx, GROND - 17);
+    b.rect(tx + 2, GROND - 13, 1, 2, raam(F));
   }
-  b.rect(x0 + 17, eiland - 5, 3, 5, donker);
-  b.px(x0 + 18, eiland - 6, donker);
-  // De gracht met een brug naar de poort.
-  const water = F.tint('#3f6f86', 0.15);
-  const glim = F.tint('#8fb7c9', 0.15);
-  b.rect(x0, eiland, 40, 3, F.sneeuw ? kl('#d9e4ee') : water);
-  if (!F.sneeuw)
-    for (let i = 0; i < 6; i++) {
-      const gx = x0 + ((i * 7 + Math.floor(rustig ? 0 : F.t * 3)) % 40);
-      b.px(gx, eiland + 1 + (i % 2), glim);
-    }
-  b.rect(x0 + 15, eiland, 7, 1, mergel);
-  b.rect(x0 + 17, eiland + 1, 3, 2, F.sneeuw ? kl('#d9e4ee') : water);
+  b.rect(x0 + 17, GROND - 5, 3, 5, donker);
+  b.px(x0 + 18, GROND - 6, donker);
 }
 
 // ----------------------------------------------------------------- huizen
