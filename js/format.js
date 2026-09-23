@@ -49,6 +49,12 @@ export function langeDatum(iso) {
   return `${DAGEN[d.getDay()]} ${d.getDate()} ${MAANDEN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "woensdag 26 augustus" — het jaartal zegt niets als het om vandaag of morgen gaat. */
+export function weekdagDatum(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  return `${DAGEN[d.getDay()]} ${d.getDate()} ${MAANDEN[d.getMonth()]}`;
+}
+
 /** "26 augustus" — zonder jaartal, voor tekst binnen hetzelfde jaar. */
 export function dagMaand(iso) {
   const d = new Date(`${iso}T12:00:00`);
@@ -58,6 +64,12 @@ export function dagMaand(iso) {
 export function korteDatum(iso) {
   const d = new Date(`${iso}T12:00:00`);
   return `${d.getDate()} ${MAANDEN[d.getMonth()].slice(0, 3)}`;
+}
+
+/** "maandag 20:40" — voor verwachtingen van de afgelopen dagen. */
+export function weekdagTijd(iso) {
+  const d = new Date(iso);
+  return `${DAGEN[d.getDay()]} ${d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 export function tijdstip(iso) {

@@ -1,6 +1,9 @@
 // Weericoontjes, met de hand getekend. Vlakken in plaats van dunne lijnen, zodat
 // ze op 18 px nog leesbaar zijn en op 72 px niet grof worden. Kleur komt uit de
-// thema-tokens (--zon, --wolk, --regen), dus ze kloppen in licht en donker.
+// thema-tokens (--zon, --wolk, --regen), dus ze kloppen in licht en donker. In de
+// 8-bitmodus komen dezelfde acht weerbeelden als pixelkunst uit pixels.js.
+
+import { PIXEL, PIXEL_ICONEN, pixelSvg } from './pixels.js';
 
 const WOLK_HOOG = `<g class="wolk">
     <circle cx="9.2" cy="9.8" r="3.6"/>
@@ -65,6 +68,7 @@ export function icoonVoorCode(code) {
 }
 
 export function icoon(naam, klasse = '') {
+  if (PIXEL) return pixelSvg(PIXEL_ICONEN[naam] ?? PIXEL_ICONEN.wolk, `ic ic-${naam}${klasse ? ` ${klasse}` : ''}`);
   const inhoud = ICONEN[naam] ?? ICONEN.wolk;
   return `<svg class="ic ic-${naam}${klasse ? ` ${klasse}` : ''}" viewBox="0 0 24 24" aria-hidden="true">${inhoud}</svg>`;
 }

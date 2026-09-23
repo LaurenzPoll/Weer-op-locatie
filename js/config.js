@@ -48,6 +48,13 @@ function beginKeuze() {
 export let DAG = beginKeuze();
 export let TARGET_DATE = datumVoor(DAG);
 
+/** De datum van n dagen geleden, net als datumVoor in de tijdzone van de locatie. */
+export function dagenTerug(n, nu = new Date()) {
+  const d = new Date(`${datumVoor('vandaag', nu)}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 export function kiesDag(keuze) {
   DAG = DAGKEUZES.includes(keuze) ? keuze : 'vandaag';
   TARGET_DATE = datumVoor(DAG);
@@ -73,3 +80,11 @@ export const HISTORY_KEY = 'weer-op-locatie:historie:v1';
 // zodat driftig op verversen drukken de trendlijn niet volspamt.
 export const HISTORY_MIN_GAP_MS = 3 * 60 * 60 * 1000;
 export const HISTORY_MAX_ENTRIES = 240;
+
+// "Wie had gelijk?": hoeveel dagen terug de app verwachtingen bewaart om ze naast
+// de werkelijkheid te leggen, en waar hij die werkelijkheid bewaart. Het verleden
+// verandert niet meer, maar gisteren wordt de eerste uren nog bijgewerkt; daarom
+// halen we de terugblik na zes uur opnieuw op.
+export const UITSLAG_DAGEN = 7;
+export const TERUGBLIK_KEY = 'weer-op-locatie:terugblik:v1';
+export const TERUGBLIK_TTL_MS = 6 * 60 * 60 * 1000;

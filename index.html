@@ -31,9 +31,8 @@
     <a class="overslaan" href="#modellen">Direct naar de modellen</a>
 
     <header class="kop omhulsel">
-      <p class="kop-regio" id="regio">Limburg</p>
+      <p class="kop-regio"><span id="regio">Limburg</span><span id="datum"></span></p>
       <h1 class="kop-plaats" id="plaats">Heerlen</h1>
-      <p class="kop-datum" id="datum">&nbsp;</p>
     </header>
 
     <div class="balk" id="balk">
@@ -65,8 +64,8 @@
       <section class="sectie" id="rooster" aria-labelledby="rooster-titel">
         <h2 id="rooster-titel" class="sectie-titel">Uur voor uur</h2>
         <p class="sectie-uitleg">
-          Elke rij een model, elke kolom een uur tussen 11:00 en 20:00. Zetten ze de regen op hetzelfde uur, of kiest
-          ieder een ander moment? Tik op een vakje voor de waarde.
+          Elke rij een model, elke kolom een uur. Zetten ze de regen op hetzelfde uur, of kiest ieder een ander
+          moment? Tik op een vakje voor de waarde.
         </p>
         <div class="paneel">
           <div id="rooster-knoppen" class="segment" role="group" aria-label="Kies wat je wilt zien" style="--n: 3; --i: 0">
@@ -87,7 +86,10 @@
         </p>
         <div class="paneel">
           <div id="legenda" class="legenda"></div>
-          <p id="legenda-uitleg" class="legenda-uitleg"></p>
+          <details class="meer">
+            <summary>Wat is het verschil tussen de groepen?</summary>
+            <p id="legenda-uitleg" class="legenda-uitleg"></p>
+          </details>
           <div id="wolken"></div>
         </div>
       </section>
@@ -95,6 +97,14 @@
       <section class="sectie" id="trend" aria-labelledby="trend-titel" hidden>
         <h2 id="trend-titel" class="sectie-titel">Schuift de verwachting nog?</h2>
         <div class="paneel" id="trend-inhoud"></div>
+      </section>
+
+      <section class="sectie" id="uitslag" aria-labelledby="uitslag-titel" hidden>
+        <h2 id="uitslag-titel" class="sectie-titel">Wie had gelijk?</h2>
+        <p class="sectie-uitleg">
+          Elke dag legt de app de verwachting van de dag ervoor naast wat er werkelijk gebeurde.
+        </p>
+        <div id="uitslag-inhoud" class="uitslag"></div>
       </section>
 
       <section class="sectie" id="modellen" aria-labelledby="modellen-titel">
@@ -126,6 +136,7 @@
     </footer>
 
     <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
+    <div id="melding" class="melding" role="status" aria-live="polite"></div>
 
     <script type="module" src="js/app.js"></script>
   </body>

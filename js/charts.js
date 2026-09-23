@@ -274,6 +274,10 @@ export function trendLijn(punten, { breedte = 132, hoogte = 34 } = {}) {
  * De meting bepaalt hoe een cel eruitziet: een kleurvlak uit één verloop van
  * licht naar donker, of een weericoontje. Nul is nooit de lichtste kleur maar
  * leegte, want droog moet als niets lezen.
+ *
+ * Het dagtotaal van een model staat onder zijn naam in plaats van in een eigen
+ * kolom. Die kolom kostte op een telefoon precies de ruimte die de avonduren
+ * nodig hebben: nu passen alle uren van het venster naast elkaar.
  */
 export function uurRooster({ rijen, uren, meting }) {
   if (!rijen.length) {
@@ -303,9 +307,8 @@ export function uurRooster({ rijen, uren, meting }) {
       (r) => `<tr>
       <th scope="row"><a href="#model-${esc(r.id)}" title="${esc(`${r.naam} — naar de kaart van dit model`)}">${esc(
         r.kort ?? r.naam
-      )}</a></th>
+      )}</a><span class="rooster-som">${esc(meting.samenvattingFormatter(r.samenvatting))}</span></th>
       ${uren.map((u) => cel(r.waarden[u] ?? null, r.naam, u)).join('')}
-      <td class="rooster-som">${esc(meting.samenvattingFormatter(r.samenvatting))}</td>
     </tr>`
     )
     .join('');
@@ -316,7 +319,6 @@ export function uurRooster({ rijen, uren, meting }) {
         ${uren
           .map((u) => `<td class="rooster-voet">${esc(meting.voet.formatter(meting.voet.waarden[u]))}</td>`)
           .join('')}
-        <td class="rooster-voet"></td>
       </tr></tfoot>`
     : '';
 
@@ -338,15 +340,16 @@ export function uurRooster({ rijen, uren, meting }) {
           ${l.nulLabel ? `<span class="legenda-item"><span class="legenda-nul"></span> ${esc(l.nulLabel)}</span>` : ''}
         </div>`;
 
+  // De uitleg bij de schaal is lang; op een telefoon duwt hij alles eronder een
+  // scherm omlaag. Hij staat er nog steeds, maar ingeklapt onder de legenda.
   return `
   <div class="rooster-omhulsel">
     <table class="rooster" data-ramp="${esc(meting.ramp ?? 'blauw')}">
       <caption class="enkel-lezer">${esc(meting.tabelUitleg)}</caption>
       <thead>
         <tr>
-          <th scope="col">Model</th>
+          <th scope="col">Model<span class="rooster-som">${esc(meting.samenvattingLabel)}</span></th>
           ${koppen}
-          <th scope="col" class="rooster-som">${esc(meting.samenvattingLabel)}</th>
         </tr>
       </thead>
       <tbody>${lijven}</tbody>
@@ -354,5 +357,9 @@ export function uurRooster({ rijen, uren, meting }) {
     </table>
   </div>
   ${legenda}
-  ${l.uitleg ? `<p class="rooster-uitleg">${l.uitleg}</p>` : ''}`;
+  ${
+    l.uitleg
+      ? `<details class="meer"><summary>${esc(l.uitlegKop)}</summary><p class="rooster-uitleg">${l.uitleg}</p></details>`
+      : ''
+  }`;
 }
