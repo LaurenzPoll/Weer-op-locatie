@@ -143,6 +143,7 @@ function consensusHtml(sam, resultaten) {
     (sam.fout ? ` · ${sam.fout} niet op te halen` : '');
 
   return `
+    <div class="lucht-links">
     <p class="lucht-eyebrow">Middag · mediaan van ${t.aantal} modellen</p>
     <div class="lucht-hoofd">
       <p class="lucht-temp"><span class="enkel-lezer">Mediane middagtemperatuur: ${esc(f.temp(t.mediaan))}</span><span
@@ -153,6 +154,8 @@ function consensusHtml(sam, resultaten) {
       </div>
     </div>
     ${koorHtml(t)}
+    </div>
+    <div class="lucht-rechts">
     <dl class="lucht-cijfers">
       <div><dt>Nacht</dt><dd>${esc(f.temp(sam.tempMin?.mediaan))}</dd>
         <dd class="bij">${sam.tempMin ? `${esc(f.graden(sam.tempMin.min))} – ${esc(f.graden(sam.tempMin.max))}°` : ''}</dd></div>
@@ -165,7 +168,8 @@ function consensusHtml(sam, resultaten) {
       <span class="oordeel-icoon" aria-hidden="true">${sam.oordeel.icoon}</span>
       <p><strong>${esc(sam.oordeel.tekst)}</strong> ${esc(sam.oordeel.reden)}.</p>
     </div>
-    <p class="lucht-dekking">${esc(dekking)}.</p>`;
+    <p class="lucht-dekking">${esc(dekking)}.</p>
+    </div>`;
 }
 
 // ------------------------------------------------------------------ spreiding
@@ -1055,7 +1059,10 @@ function plaatsScene() {
   }
   sceneDoek.hidden = false;
   const breedte = lucht.clientWidth;
-  const schaal = breedte >= 600 ? 3 : 2;
+  // Een liggende telefoon is breed maar laag: daar blijven de pixels klein,
+  // anders vult de skyline het halve scherm.
+  const laag = matchMedia('(orientation: landscape) and (max-height: 540px)').matches;
+  const schaal = breedte >= 600 && !laag ? 3 : 2;
   // Het hoogste gebouw (de kerk, 57 pixels) plus de straat, en wat lucht.
   lucht.style.setProperty('--skyline', `${(57 + 14 + 3) * schaal + 8}px`);
   // Gemeten vanaf de kaart zelf: offsetTop zou vanaf het binnenvak tellen.

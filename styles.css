@@ -2005,6 +2005,130 @@ svg.trend {
   }
 }
 
+/* ------------------------------------------------------ liggende telefoon */
+
+/* Een gekantelde telefoon is breed maar laag. De app gebruikt dan de volle
+   breedte (binnen de inham van de notch), de kop krimpt tot één regel, en de
+   kaart met de samenvatting legt zijn twee helften naast elkaar in plaats van
+   onder elkaar, zodat hij op één scherm past. */
+@media (orientation: landscape) and (max-height: 540px) {
+  .omhulsel {
+    max-width: none;
+  }
+  /* De kop wordt één regel: datum en plaatsnaam links, de dagknop rechts
+     ernaast. De balk schuift daarvoor over de kop heen; zolang hij niet
+     vastzit is hij doorzichtig en laat hij tikken door naar HEERLEN. */
+  .kop {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: calc(env(safe-area-inset-top) + 58px);
+    padding-block: env(safe-area-inset-top) 0;
+  }
+  .kop-regio {
+    margin: 0 0 3px;
+    font-size: 11px;
+  }
+  .kop-plaats {
+    font-size: 36px;
+  }
+  .balk {
+    margin-top: -58px;
+  }
+  .balk:not(.is-vast) {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    pointer-events: none;
+  }
+  .balk-binnen > * {
+    pointer-events: auto;
+  }
+  #dag-knoppen {
+    max-width: 280px;
+  }
+  main {
+    gap: 26px;
+  }
+
+  .lucht {
+    padding: 18px 24px 16px;
+  }
+  .lucht-inhoud {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 32px;
+  }
+  .lucht-inhoud > * {
+    grid-column: 1 / -1;
+  }
+  .lucht-inhoud > .lucht-links {
+    grid-column: 1;
+  }
+  .lucht-inhoud > .lucht-rechts {
+    grid-column: 2;
+    align-self: center;
+  }
+  .lucht-temp {
+    font-size: clamp(80px, 12vw, 104px);
+    white-space: nowrap;
+  }
+  .lucht-beeld strong {
+    white-space: nowrap;
+  }
+  .lucht-rechts .lucht-cijfers {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .lucht-rechts .oordeel {
+    margin-top: 16px;
+  }
+
+  /* In 8-bit staat de skyline over de hele breedte tussen de temperatuur en
+     de rest: bovenaan de temperatuur en het weerbeeld naast elkaar, onder de
+     skyline de stippen en de cijfers naast elkaar, en daaronder het oordeel. */
+  [data-modus='8bit'] .lucht-links,
+  [data-modus='8bit'] .lucht-rechts {
+    display: contents;
+  }
+  [data-modus='8bit'] .lucht-inhoud {
+    grid-template-areas:
+      'eyebrow eyebrow'
+      'hoofd hoofd'
+      'koor cijfers'
+      'oordeel oordeel'
+      'dekking dekking';
+  }
+  [data-modus='8bit'] .lucht-eyebrow {
+    grid-area: eyebrow;
+  }
+  [data-modus='8bit'] .lucht-hoofd {
+    grid-area: hoofd;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 28px;
+  }
+  [data-modus='8bit'] .lucht .koor {
+    grid-area: koor;
+  }
+  [data-modus='8bit'] .lucht-cijfers {
+    grid-area: cijfers;
+    align-self: end;
+    margin-top: var(--skyline, 156px);
+  }
+  [data-modus='8bit'] .oordeel {
+    grid-area: oordeel;
+  }
+  [data-modus='8bit'] .lucht-dekking {
+    grid-area: dekking;
+  }
+  [data-modus='8bit'] .kop-plaats {
+    font-size: 30px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
