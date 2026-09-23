@@ -1,7 +1,7 @@
 // De 8-bitmodus: Heerlen in pixels achter de bovenste kaart. Een brede strook
 // stad — Kasteel Hoensbroek, het Glaspaleis, het Raadhuis, de kerktoren, het
-// Maankwartier met de Heliostaat en de trein, de schachtbok en de terril met
-// SnowWorld — waar de camera
+// Maankwartier met de Heliostaat en de trein en de schachtbok, met in de verte
+// de terril met SnowWorld — waar de camera
 // langzaam langs schuift. Met het weer dat de meeste modellen geven, de zon en
 // de maan waar ze nu echt boven Heerlen staan, en Kerstmis, carnaval en
 // Koningsdag als het zover is.
@@ -80,9 +80,9 @@ const KLOKVERSCHIL = gevraagd && !Number.isNaN(Date.parse(gevraagd)) ? Date.pars
 
 // ----------------------------------------------------------------- indeling
 
-// De stad is een vaste strook van 560 pixels; is het scherm breder, dan
+// De stad is een vaste strook van 500 pixels; is het scherm breder, dan
 // schuiven de gebouwen verder uit elkaar en vullen huizen de gaten.
-const STAD = 560;
+const STAD = 500;
 const PLEK = {
   kasteel: 4,
   glas: 80,
@@ -90,8 +90,7 @@ const PLEK = {
   boom: 163,
   kerk: 175,
   maan: 285,
-  schacht: 390,
-  terril: 530
+  schacht: 390
 };
 const BREEDTE = { kasteel: 40, glas: 22, raad: 36, boom: 4, kerk: 25, maan: 42, schacht: 33 };
 
@@ -232,7 +231,7 @@ export function maakScene(canvas) {
     const WW = s.WW;
     const plek = indeling(WW);
     const bezet = Object.keys(BREEDTE).map((k) => [plek[k] - 3, plek[k] + BREEDTE[k] + 2]);
-    bezet.push([plek.maan - 10, plek.maan + 44], [plek.terril - 54, WW + 10]);
+    bezet.push([plek.maan - 10, plek.maan + 44]);
     const vrij = (a, b) => bezet.every(([l, r]) => b < l || a > r);
     const rnd = mulberry32(11);
     const huizen = [];
@@ -396,9 +395,15 @@ export function maakScene(canvas) {
     }
 
     // De stad, in wereldcoördinaten achter de camera.
-    tekenHeuvels(b, meng(horizon, '#2f4f3a', 0.45), Math.round(cam * 0.5));
+    // De terril met SnowWorld staat in de verte: vager, in de kleur van de
+    // horizon, en hij schuift half zo snel mee als de stad.
+    const verte = Math.round(cam * 0.5);
+    const terril = Math.round(W * 0.75 + (WW - W) * 0.42);
+    b.ox = verte;
+    tekenTerril(b, terril, { ...F, tint: (c, f = 0.12) => kl(meng(c, horizon, Math.min(0.85, f + 0.38))) }, terril + 60);
+    b.ox = 0;
+    tekenHeuvels(b, meng(horizon, '#2f4f3a', 0.45), verte);
     b.ox = cam;
-    tekenTerril(b, plek.terril, F, WW + 60);
     tekenSchachtbok(b, plek.schacht, F);
     tekenKasteel(b, plek.kasteel, F);
     tekenRaadhuis(b, plek.raad, F);
