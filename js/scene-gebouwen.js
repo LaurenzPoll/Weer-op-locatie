@@ -154,7 +154,7 @@ export function tekenKerk(b, x0, F) {
 // wordt, met bovenop een halve bol. De bolle kant lijkt op de maan, de platte
 // kant is een spiegel: overdag kantelt hij naar de zon en kaatst licht het
 // plein op, 's avonds wijst hij naar beneden. Achter de bogen in het dek rijden
-// om beurten een gele trein van de NS en een witblauwe van Arriva.
+// om beurten een lange gele trein van de NS en een korte witblauwe van Arriva.
 export function tekenMaankwartier(b, x0, F) {
   const { GROND } = maat;
   const { t, sneeuw } = F;
@@ -173,6 +173,7 @@ export function tekenMaankwartier(b, x0, F) {
   const rit = rustig ? 40 : t * 20;
   const treinX = x0 + 60 - (rit % 150);
   const arriva = Math.floor(rit / 150) % 2 === 1;
+  const lengte = arriva ? 28 : 56;
   const kleur = arriva
     ? { boven: '#eef1f4', midden: '#eef1f4', onder: '#1b2f6e', band: '#1b2f6e' }
     : { boven: '#ffc917', midden: '#ffc917', onder: '#ffc917', band: '#1f4e9c' };
@@ -180,7 +181,7 @@ export function tekenMaankwartier(b, x0, F) {
     b.rect(bx + 1, dek + 2, 4, 1, donker);
     b.rect(bx, dek + 3, 6, GROND - dek - 3, donker);
     for (let x = bx; x < bx + 6; x++) {
-      if (x < treinX || x >= treinX + 28) continue;
+      if (x < treinX || x >= treinX + lengte) continue;
       const i = x - Math.floor(treinX);
       b.px(x, dek + 4, kl(kleur.boven));
       b.px(x, dek + 5, kl(kleur.midden));
@@ -357,40 +358,6 @@ export function tekenRaadhuis(b, x0, F) {
   else b.rect(mx + 5, top - 12, 1, 7, kl('#c9ced4'));
 }
 
-// ----------------------------------------------------------- Thermenmuseum
-
-// Het Thermenmuseum: een laag entreegebouw en de grote hal van staal en glas
-// die op vier kolommen over de resten van het Romeinse badhuis staat.
-// Door het glas zie je de muurtjes en zuilstompen van Coriovallum.
-export function tekenThermen(b, x0, F) {
-  const { GROND } = maat;
-  const wit = F.tint('#dcdcd6');
-  const staal = F.tint('#4f555d', 0.08);
-  // Het entreegebouw.
-  b.rect(x0, GROND - 9, 11, 9, wit);
-  b.rect(x0, GROND - 10, 11, 1, F.sneeuw ? kl(WIT) : staal);
-  b.rect(x0 + 1, GROND - 7, 9, 2, raam(F));
-  b.rect(x0 + 4, GROND - 3, 3, 3, kl('#3a3f4a'));
-  // De ruïnes onder de hal.
-  const hx = x0 + 11;
-  const tuf = F.tint('#b98d6a');
-  const tuf2 = F.tint('#9c7254');
-  b.rect(hx + 1, GROND - 3, 6, 3, tuf);
-  b.rect(hx + 9, GROND - 4, 3, 4, tuf2);
-  b.rect(hx + 13, GROND - 2, 7, 2, tuf);
-  for (const zx of [hx + 3, hx + 15, hx + 18]) b.rect(zx, GROND - 6, 1, 4, F.tint('#d8c9ae'));
-  // Het glas: om en om een pixel, zodat je erdoorheen kijkt.
-  const glas = F.lampen ? licht('#f3d98e') : F.tint('#a9c4d6');
-  for (let y = GROND - 11; y < GROND; y++)
-    for (let x = hx; x < hx + 22; x++) if ((x + y) & 1 && ((x - hx) % 4 !== 0 || y < GROND - 8)) b.px(x, y, glas);
-  for (let x = hx; x < hx + 22; x += 4) b.rect(x, GROND - 11, 1, 3, staal);
-  // Het dak en de vakwerkrand, op kolommen.
-  b.rect(hx - 1, GROND - 13, 24, 2, F.sneeuw ? kl(WIT) : staal);
-  for (let x = hx; x < hx + 22; x += 2) b.px(x, GROND - 11, staal);
-  b.rect(hx + 1, GROND - 11, 1, 11, staal);
-  b.rect(hx + 20, GROND - 11, 1, 11, staal);
-}
-
 // --------------------------------------------------------- Kasteel Hoensbroek
 
 // Kasteel Hoensbroek in zijn brede gracht: baksteen met banden mergel, twee
@@ -453,32 +420,10 @@ export function tekenKasteel(b, x0, F) {
   b.rect(x0 + 17, eiland + 1, 3, 2, F.sneeuw ? kl('#d9e4ee') : water);
 }
 
-// ------------------------------------------------------------ flat met mural
-
-// Heerlen is de muralhoofdstad van Nederland. Een flat met een gevelvullende
-// muurschildering in brede, schuine kleurbanen, met de ramen er gewoon in.
-export function tekenFlat(b, x0, F) {
-  const { GROND } = maat;
-  const w = 16;
-  const h = 26;
-  const kleuren = ['#f2b632', '#e8543f', '#2fa39a', '#7b4fa0', '#f4e6c8'].map((c) => F.tint(c, 0.1));
-  for (let y = GROND - h; y < GROND; y++)
-    for (let x = x0; x < x0 + w; x++) {
-      const band = Math.floor((x - x0 + (GROND - y) * 0.6) / 4) % kleuren.length;
-      b.px(x, y, kleuren[band]);
-    }
-  b.rect(x0, GROND - h - 1, w, 1, kl(F.sneeuw ? WIT : '#3a3f4a'));
-  let i = 0;
-  for (let y = GROND - h + 2; y < GROND - 3; y += 4)
-    for (const x of [x0 + 2, x0 + 6, x0 + 9, x0 + 13]) b.rect(x, y, 1, 2, raam(F, (i++ * 3) % 5 < 3));
-  b.rect(x0 + 7, GROND - 3, 2, 3, kl('#3a2a22'));
-}
-
 // ----------------------------------------------------------------- huizen
 
-// Een rij huizen van baksteen en mergel. Een paar blinde zijgevels dragen een
-// muurschildering: een groot geel gezicht, of kleurbanen. Met Kerstmis hangen
-// er lichtjes langs de dakranden.
+// Een rij huizen van baksteen en mergel. Met Kerstmis hangen er lichtjes langs
+// de dakranden.
 export function tekenHuizen(b, stad, F) {
   const { GROND } = maat;
   const dak = kl('#3a3f4a');
@@ -488,19 +433,6 @@ export function tekenHuizen(b, stad, F) {
   for (const h of stad.huizen) {
     const top = GROND - h.h;
     b.rect(h.x, top, h.b, h.h, kl(h.muur));
-    if (h.mural === 'gezicht') {
-      b.rect(h.x + 1, top + 1, h.b - 2, h.h - 1, kl('#2f8f9d'));
-      const cx = h.x + h.b / 2 - 0.5;
-      const cy = top + h.h / 2;
-      b.schijf(cx, cy, Math.min(h.b, h.h) / 2 - 1.2, kl('#f2c230'));
-      b.px(cx - 1.5, cy - 1, kl('#1d2026'));
-      b.px(cx + 1.5, cy - 1, kl('#1d2026'));
-      b.rect(cx - 1, cy + 1.5, 3, 1, kl('#c2412d'));
-    } else if (h.mural === 'banen') {
-      const kleuren = ['#e8543f', '#f2b632', '#7b4fa0', '#2fa39a'];
-      for (let y = top + 1; y < GROND; y++)
-        for (let x = h.x + 1; x < h.x + h.b - 1; x++) b.px(x, y, kl(kleuren[(((Math.floor((x - y) / 3) % 4) + 4) % 4)]));
-    }
     const dakH = Math.min(5, Math.ceil(h.b / 2));
     for (let i = 0; i < dakH; i++) {
       const y = top - 1 - i;
@@ -515,7 +447,7 @@ export function tekenHuizen(b, stad, F) {
     }
     if (F.feest.kerst)
       for (let x = h.x; x < h.x + h.b; x += 2) b.px(x, top, kerstKleuren[(x / 2 + knipper) & 3]);
-    if (!h.mural) for (const [rx, ry, aan] of h.ramen) b.rect(rx, GROND - ry, 1, 2, raam(F, aan));
+    for (const [rx, ry, aan] of h.ramen) b.rect(rx, GROND - ry, 1, 2, raam(F, aan));
     b.rect(h.deur, GROND - 3, 2, 3, kl('#3a2a22'));
   }
   for (const x of stad.bomen) {

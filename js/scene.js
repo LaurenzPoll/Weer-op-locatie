@@ -1,7 +1,7 @@
 // De 8-bitmodus: Heerlen in pixels achter de bovenste kaart. Een brede strook
 // stad — Kasteel Hoensbroek, het Glaspaleis, het Raadhuis, de kerktoren, het
-// Thermenmuseum, het Maankwartier met de Heliostaat en de trein, een flat met
-// een mural, de schachtbok en de terril met SnowWorld — waar de camera
+// Maankwartier met de Heliostaat en de trein, de schachtbok en de terril met
+// SnowWorld — waar de camera
 // langzaam langs schuift. Met het weer dat de meeste modellen geven, de zon en
 // de maan waar ze nu echt boven Heerlen staan, en Kerstmis, carnaval en
 // Koningsdag als het zover is.
@@ -22,9 +22,7 @@ import {
   tekenMaankwartier,
   tekenGlaspaleis,
   tekenRaadhuis,
-  tekenThermen,
   tekenKasteel,
-  tekenFlat,
   tekenHuizen,
   tekenKerstboom,
   tekenBushalte,
@@ -34,7 +32,6 @@ import {
 import {
   tekenFietser,
   tekenWandelaar,
-  tekenLegionair,
   tekenSneeuwpop,
   tekenBus,
   tekenWagen,
@@ -92,13 +89,11 @@ const PLEK = {
   raad: 120,
   boom: 163,
   kerk: 175,
-  thermen: 232,
   maan: 285,
-  flat: 350,
   schacht: 390,
   terril: 530
 };
-const BREEDTE = { kasteel: 40, glas: 22, raad: 36, boom: 4, kerk: 25, thermen: 32, maan: 42, flat: 16, schacht: 33 };
+const BREEDTE = { kasteel: 40, glas: 22, raad: 36, boom: 4, kerk: 25, maan: 42, schacht: 33 };
 
 function indeling(WW) {
   const f = WW / STAD;
@@ -263,10 +258,6 @@ export function maakScene(canvas) {
         x += gat;
       }
     }
-    // Twee blinde gevels krijgen een muurschildering.
-    const breed = huizen.filter((h) => h.b >= 11 && h.h >= 10);
-    if (breed[1]) breed[1].mural = 'gezicht';
-    if (breed[4]) breed[4].mural = 'banen';
     s.stad = { huizen, bomen };
   }
 
@@ -412,10 +403,8 @@ export function maakScene(canvas) {
     tekenKasteel(b, plek.kasteel, F);
     tekenRaadhuis(b, plek.raad, F);
     tekenKerk(b, plek.kerk, F);
-    tekenThermen(b, plek.thermen, F);
     tekenMaankwartier(b, plek.maan, F);
     tekenGlaspaleis(b, plek.glas, F);
-    tekenFlat(b, plek.flat, F);
     tekenHuizen(b, s.stad, F);
     if (feest.kerst) tekenKerstboom(b, plek.boom + 2, F);
     const halte = plek.maan + 2;
@@ -444,12 +433,6 @@ export function maakScene(canvas) {
     if (F.sneeuw) tekenSneeuwpop(b, plek.kerk + 30);
     if (NAT.has(weer)) tekenWandelaar(b, Math.round(((WW * 0.2 + (rustig ? 0 : t * 4)) % (WW + 20)) - 10), t);
     else if (!F.sneeuw) tekenFietser(b, Math.round(((WW * 0.05 + (rustig ? 0 : t * 11)) % (WW + 30)) - 15), t);
-    if (!NAT.has(weer)) {
-      const baan = BREEDTE.thermen + 8;
-      const p = (rustig ? 10 : t * 3) % (2 * baan);
-      const heen = p < baan;
-      tekenLegionair(b, Math.round(plek.thermen - 4 + (heen ? p : 2 * baan - p)), t, heen ? 1 : -1);
-    }
     // De bus komt van rechts, stopt even bij de halte voor het station en rijdt
     // door. Met carnaval rijdt om de beurt een carnavalswagen mee.
     const v = 26;

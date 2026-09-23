@@ -45,32 +45,6 @@ export function tekenWandelaar(b, x, t) {
   b.px(x + stap, y - 1, jas);
 }
 
-// Een Romeinse legionair die voor het Thermenmuseum heen en weer loopt: rode
-// tunica, helm met rode kam, schild en speer.
-export function tekenLegionair(b, x, t, kant) {
-  const y = maat.GROND + 2;
-  const rood = kl('#b3262d');
-  const helm = kl('#aab1ba');
-  const huid = kl('#e0b48f');
-  b.rect(x - 1, y - 12, 3, 1, rood);
-  b.rect(x, y - 11, 2, 1, helm);
-  b.px(x, y - 10, huid);
-  b.px(x + 1, y - 10, helm);
-  b.rect(x, y - 9, 2, 3, rood);
-  b.rect(x, y - 6, 2, 1, kl('#6b4a2a'));
-  const stap = rustig ? 0 : Math.floor(t * 4) % 2;
-  b.px(x - stap + (stap ? 1 : 0), y - 5, huid);
-  b.px(x + 1 + stap - (stap ? 1 : 0), y - 5, huid);
-  b.px(x, y - 4, kl('#6b4a2a'));
-  b.px(x + 1, y - 4, kl('#6b4a2a'));
-  const sx = kant > 0 ? x + 2 : x - 2;
-  b.rect(sx, y - 9, 2, 4, rood);
-  b.px(sx + (kant > 0 ? 0 : 1), y - 7, kl('#ffd35c'));
-  const px = kant > 0 ? x - 1 : x + 2;
-  b.rect(px, y - 14, 1, 11, kl('#8a6a45'));
-  b.px(px, y - 15, helm);
-}
-
 export function tekenSneeuwpop(b, x) {
   const { GROND } = maat;
   const wit = kl('#f4f7fb');
