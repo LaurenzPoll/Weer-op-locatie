@@ -1,8 +1,8 @@
 // De 8-bitmodus: Heerlen in pixels achter de bovenste kaart. Kasteel
 // Hoensbroek, het Maankwartier met de Heliostaat en de trein, en de
-// schachtbok, met in de verte de terril met SnowWorld. Is het scherm breder —
-// een gekantelde telefoon, een laptop — dan komen de kerktoren, het
-// Glaspaleis en het Raadhuis erbij. Met het weer dat de meeste modellen
+// schachtbok, het Glaspaleis en het Raadhuis, met in de verte de terril met
+// SnowWorld. Is het scherm breder — een gekantelde telefoon, een laptop — dan
+// komt de kerktoren erbij. Met het weer dat de meeste modellen
 // geven, de zon en de maan waar ze nu echt boven Heerlen staan, en Kerstmis,
 // carnaval en Koningsdag als het zover is.
 //
@@ -82,41 +82,45 @@ const KLOKVERSCHIL = gevraagd && !Number.isNaN(Date.parse(gevraagd)) ? Date.pars
 // ----------------------------------------------------------------- indeling
 
 // Van links naar rechts, met hun breedte en hoe ver de gevel inspringt (het
-// Maankwartier heeft links nog een trap). Kasteel Hoensbroek, het
-// Maankwartier en de schachtbok staan er altijd; de kerk, het Glaspaleis, het
-// Raadhuis en de plek voor de kerstboom komen erbij zolang ze passen, maar
-// pas vanaf 220 pixels: een gekantelde telefoon of een laptop. Een staande
-// telefoon (tot zo'n 215) houdt het bij de drie. Wat overblijft wordt eerlijk
-// verdeeld over de gaten, en daar komen huizen.
+// Maankwartier heeft links nog een trap). Kasteel Hoensbroek, het Glaspaleis,
+// het Raadhuis, het Maankwartier en de schachtbok staan er altijd; op een
+// staande telefoon (tot zo'n 215 pixels) zijn het Glaspaleis en het Raadhuis
+// wat smaller. Vanaf 220 pixels — een gekantelde telefoon, een laptop — komen
+// de kerk en de plek voor de kerstboom erbij, zolang ze passen. Wat overblijft
+// wordt eerlijk verdeeld over de gaten, en daar komen huizen.
 const DELEN = [
   ['kasteel', 40, 0],
-  ['glas', 22, 1],
-  ['raad', 36, 1],
+  ['glas', 22, 1, 14],
+  ['raad', 36, 1, 22],
   ['boom', 8, 3],
   ['kerk', 25, 0],
   ['maan', 49, 7],
   ['schacht', 34, 2]
 ];
-const VAST = ['kasteel', 'maan', 'schacht'];
-const EXTRA = ['kerk', 'glas', 'raad', 'boom'];
+const VAST = ['kasteel', 'glas', 'raad', 'maan', 'schacht'];
+const EXTRA = ['kerk', 'boom'];
 const MINSTE_GAT = 8;
 const BREED = 220;
 
 function indeling(W) {
-  const breedte = (namen) => DELEN.filter(([k]) => namen.includes(k)).reduce((som, [, w]) => som + w + MINSTE_GAT, MINSTE_GAT);
+  const smal = W < BREED;
+  const delen = DELEN.map(([k, w, inspring, smaller]) => [k, smal && smaller ? smaller : w, inspring]);
+  const breedte = (namen) => delen.filter(([k]) => namen.includes(k)).reduce((som, [, w]) => som + w + MINSTE_GAT, MINSTE_GAT);
   let namen = [...VAST];
-  if (W >= BREED) for (const k of EXTRA) if (breedte([...namen, k]) <= W) namen = [...namen, k];
-  const gekozen = DELEN.filter(([k]) => namen.includes(k));
+  if (!smal) for (const k of EXTRA) if (breedte([...namen, k]) <= W) namen = [...namen, k];
+  const gekozen = delen.filter(([k]) => namen.includes(k));
   const gat = (W - gekozen.reduce((som, [, w]) => som + w, 0)) / (gekozen.length + 1);
   const plek = {};
+  const breedtes = {};
   const bezet = [];
   let x = gat;
   for (const [k, w, inspring] of gekozen) {
     plek[k] = Math.round(x + inspring);
+    breedtes[k] = w;
     bezet.push([Math.round(x) - 2, Math.round(x + w) + 2]);
     x += w + gat;
   }
-  return { plek, bezet };
+  return { plek, breedtes, bezet };
 }
 
 // ----------------------------------------------------------------- tekenen
@@ -332,7 +336,7 @@ export function maakScene(canvas) {
     vorige = t;
     const W = s.W;
     const weer = s.weer;
-    const { plek } = indeling(W);
+    const { plek, breedtes } = indeling(W);
 
     const nu = new Date(Date.now() + KLOKVERSCHIL);
     const hem = hemel(nu);
@@ -415,10 +419,10 @@ export function maakScene(canvas) {
     tekenVerteStad(b, s.stad.verte, F);
     tekenSchachtbok(b, plek.schacht, F);
     tekenKasteel(b, plek.kasteel, F);
-    if (plek.raad !== undefined) tekenRaadhuis(b, plek.raad, F);
+    tekenRaadhuis(b, plek.raad, F, breedtes.raad);
     if (plek.kerk !== undefined) tekenKerk(b, plek.kerk, F);
     tekenMaankwartier(b, plek.maan, F);
-    if (plek.glas !== undefined) tekenGlaspaleis(b, plek.glas, F);
+    tekenGlaspaleis(b, plek.glas, F, breedtes.glas);
     tekenHuizen(b, s.stad, F);
     // Is er geen plek voor de kerstboom, dan staat hij voor de trap van het station.
     if (feest.kerst) tekenKerstboom(b, plek.boom ?? plek.maan - 13, F);
@@ -444,25 +448,19 @@ export function maakScene(canvas) {
     if (F.sneeuw) tekenSneeuwpop(b, plek.kasteel + 46);
     if (NAT.has(weer)) tekenWandelaar(b, Math.round(((W * 0.2 + (rustig ? 0 : t * 4)) % (W + 20)) - 10), t);
     else if (!F.sneeuw) tekenFietser(b, Math.round(((W * 0.05 + (rustig ? 0 : t * 11)) % (W + 30)) - 15), t);
-    // De bus komt van rechts, stopt even bij de halte voor het station en rijdt
-    // door. Met carnaval rijdt om de beurt een carnavalswagen mee.
+    // Af en toe rijdt de bus van rechts naar links voorbij. Met carnaval rijdt
+    // om de beurt een carnavalswagen mee.
     const v = 26;
     const van = W + 30;
-    const stop = halte - 5;
-    const t1 = (van - stop) / v;
-    const t2 = (stop + 35) / v;
-    const periode = t1 + 5 + t2 + 12;
+    const periode = (W + 65) / v + 12;
     const u = (t + 6) % periode;
     const ronde = Math.floor((t + 6) / periode);
     if (feest.carnaval && ronde % 2 === 1) {
       const x = Math.round(van - u * 16);
       if (x > -35) tekenWagen(b, x, t);
     } else {
-      let x = null;
-      if (u < t1) x = van - u * v;
-      else if (u < t1 + 5) x = stop;
-      else if (u < t1 + 5 + t2) x = stop - (u - t1 - 5) * v;
-      if (x !== null) tekenBus(b, Math.round(x), t, F.lampen);
+      const x = Math.round(van - u * v);
+      if (x > -30) tekenBus(b, x, t, F.lampen);
     }
 
     maakNacht(b, s.lucht, (1 - dag) * 0.62);
