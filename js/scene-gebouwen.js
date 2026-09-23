@@ -297,9 +297,8 @@ export function tekenMaankwartier(b, x0, F) {
 // ------------------------------------------------------------- Glaspaleis
 
 // Het Glaspaleis: een glazen doos met een raster van stijlen en vloeren.
-export function tekenGlaspaleis(b, x0, F) {
+export function tekenGlaspaleis(b, x0, F, w = 22) {
   const { GROND } = maat;
-  const w = 22;
   const h = 21;
   const y0 = GROND - h;
   const kader = kl('#dfe6ee');
@@ -323,9 +322,8 @@ export function tekenGlaspaleis(b, x0, F) {
 // Het Raadhuis van Frits Peutz (1936–1942): een lang, strak blok bekleed met
 // zandkleurige Franse kalksteen, met hoge smalle ramen, een zuilengang op de
 // begane grond en in het midden het iets hogere deel van de raadszaal.
-export function tekenRaadhuis(b, x0, F) {
+export function tekenRaadhuis(b, x0, F, w = 36) {
   const { GROND } = maat;
-  const w = 36;
   const h = 19;
   const top = GROND - h;
   const steen = F.tint('#d6c39a');
@@ -340,7 +338,7 @@ export function tekenRaadhuis(b, x0, F) {
   for (let x = x0 + 1; x < x0 + w - 1; x += 3) b.rect(x, GROND - 5, 1, 5, steen);
   b.rect(x0, GROND - 6, w, 1, lijst);
   // Het middendeel.
-  const mx = x0 + 13;
+  const mx = x0 + Math.round((w - 10) / 2);
   b.rect(mx, top - 4, 10, 4, steen);
   b.rect(mx - 1, top - 5, 12, 1, F.sneeuw ? kl(WIT) : lijst);
   b.rect(mx + 2, top - 2, 6, 9, raam(F));
