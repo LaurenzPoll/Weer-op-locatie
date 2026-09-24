@@ -1818,6 +1818,36 @@ svg.trend {
   text-decoration-color: var(--as);
   text-underline-offset: 2px;
 }
+.voet-knop {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 18px 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-1);
+  box-shadow: var(--schaduw);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s var(--veer);
+}
+.voet-knop:active {
+  transform: scale(0.96);
+}
+.voet-knop svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* ------------------------------------------------------------------ tooltip */
 
@@ -1868,6 +1898,56 @@ svg.trend {
 .melding.zichtbaar {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Blijft staan tot je laadt: een nieuwe versie is geen bericht dat vanzelf
+   verdwijnt. Een gewone melding schuift er dan boven. */
+.versie-melding {
+  position: fixed;
+  z-index: 34;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: max-content;
+  max-width: min(92vw, 420px);
+  padding: 6px 6px 6px 18px;
+  border-radius: 999px;
+  background: var(--text-1);
+  color: var(--surface-1);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
+  animation: versie-in 0.35s var(--veer);
+}
+.versie-melding[hidden] {
+  display: none;
+}
+.versie-melding button {
+  flex: none;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.versie-melding:not([hidden]) ~ .melding {
+  bottom: calc(76px + env(safe-area-inset-bottom));
+}
+/* En de knop onderaan de pagina blijft erboven te zien. */
+body:has(.versie-melding:not([hidden])) .voet {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+@keyframes versie-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
 }
 
 /* ------------------------------------------------------------------- 8-bit */
@@ -1951,10 +2031,13 @@ svg.trend {
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-[data-modus='8bit'] .melding {
+[data-modus='8bit'] :is(.melding, .versie-melding, .voet-knop) {
   font-family: var(--pixelletter);
   font-weight: 400;
   font-size: 12px;
+  border-radius: 0;
+}
+[data-modus='8bit'] .versie-melding button {
   border-radius: 0;
 }
 
@@ -2153,7 +2236,9 @@ svg.trend {
   }
   .overslaan,
   .balk,
-  .tip {
+  .tip,
+  .versie-melding,
+  .voet-knop {
     display: none !important;
   }
   .paneel,

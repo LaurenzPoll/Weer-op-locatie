@@ -1153,6 +1153,51 @@ function zetModelLinksOp() {
   });
 }
 
+// ------------------------------------------------------------ nieuwe versie
+// Wie de app opent, krijgt van de service worker altijd de nieuwste versie.
+// Maar een app op het beginscherm van de iPhone begint niet opnieuw als je hem
+// terughaalt; hij gaat verder waar hij was. Daarom vraagt de pagina dan aan de
+// service worker of er intussen iets nieuws staat, en biedt hem onderin aan.
+// Onderaan de pagina kun je ook altijd zelf opnieuw laden.
+
+let nieuweVersie = false;
+
+function controleerVersie() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.controller?.postMessage('controleer');
+  // Ook de service worker zelf kan nieuw zijn; normaal kijkt de browser daar
+  // pas naar bij de volgende keer openen.
+  navigator.serviceWorker
+    .getRegistration()
+    .then((r) => r?.update())
+    .catch(() => {});
+}
+
+function zetVersieOp() {
+  const herlaad = () => location.reload();
+  el('herladen').addEventListener('click', herlaad);
+  el('versie-laden').addEventListener('click', herlaad);
+
+  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data !== 'nieuwe-versie') return;
+    nieuweVersie = true;
+    el('nieuwe-versie').hidden = false;
+  });
+
+  // Niet bij elk trekje aan het berichtencentrum; eens per minuut is genoeg.
+  let laatst = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || Date.now() - laatst < 60_000) return;
+    laatst = Date.now();
+    controleerVersie();
+  });
+
+  navigator.serviceWorker.register('./sw.js').catch(() => {
+    // Zonder service worker werkt de app gewoon, alleen niet offline.
+  });
+}
+
 // ----------------------------------------------------------------------- start
 
 function start() {
@@ -1174,7 +1219,12 @@ function start() {
       render(laatsteRender.resultaten, laatsteRender.meta);
     }, 150);
   });
-  el('verversen').addEventListener('click', () => laad({ forceer: true }));
+  el('verversen').addEventListener('click', () => {
+    // Staat er een nieuwe versie klaar, dan is opnieuw laden de beste verversing.
+    if (nieuweVersie) return location.reload();
+    laad({ forceer: true });
+    controleerVersie();
+  });
 
   el('rooster-knoppen').addEventListener('click', (e) => {
     const knop = e.target.closest('button[data-meting]');
@@ -1201,12 +1251,7 @@ function start() {
   });
 
   laad();
-
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      // Zonder service worker werkt de app gewoon, alleen niet offline.
-    });
-  }
+  zetVersieOp();
 }
 
 start();

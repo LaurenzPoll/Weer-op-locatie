@@ -91,11 +91,19 @@ Dezelfde controle loopt als GitHub Action — handmatig te starten via *Actions 
 
 ## Iconen
 
-De iconen worden gegenereerd, niet met de hand getekend:
+Het icoon is de lucht uit de bovenste kaart: een zon die achter een wolk vandaan komt, met op de wolk de drie stippen van de spreiding. De iconen worden gegenereerd, niet met de hand getekend:
 
 ```bash
 node scripts/maak-iconen.mjs
 ```
+
+Dat schrijft `apple-touch-icon.png` (180 × 180, voor het beginscherm van de iPhone), `icon-192.png` en `icon-512.png` (voor het manifest, ook als maskable) en `favicon.svg` voor het browsertabje. De iPhone neemt het icoon over op het moment dat je de app op het beginscherm zet en kijkt daarna niet meer; zie je een oud icoon, haal de app dan van het beginscherm en zet hem er opnieuw op.
+
+## Nieuwe versies
+
+De service worker ([`sw.js`](sw.js)) haalt de eigen bestanden eerst van het netwerk en valt pas terug op zijn cache als er geen verbinding is, of als het netwerk na 3 seconden nog niets heeft gegeven. Wie de app opent, krijgt dus altijd de nieuwste versie in zijn geheel, zonder de tien minuten die GitHub Pages bestanden laat cachen. Een versienummer ophogen is daarvoor niet nodig.
+
+Een app op het beginscherm begint niet opnieuw als je hem terughaalt, maar gaat verder waar hij was. Daarom vergelijkt de app bij terugkomst (en bij een tik op verversen) de code met die op de server; is er iets veranderd, dan verschijnt onderin *Er is een nieuwe versie* met een knop om hem te laden. Helemaal onderaan de pagina staat bovendien altijd een knop *Nieuwste versie laden*.
 
 ## Publiceren
 
