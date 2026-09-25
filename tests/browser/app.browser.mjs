@@ -39,34 +39,92 @@ async function telefoon({ sw = false, ...opties } = {}) {
 
 const wachtOpKaart = (page) => page.waitForSelector('#consensus .lucht-temp', { timeout: 15000 });
 
-test('een nieuwe versie wordt gemeld en met één tik geladen', async () => {
-  const { context, page, fouten } = await telefoon({ sw: true });
-  try {
-    await page.goto(`${server.url}?mock=1`);
-    await page.evaluate(() => navigator.serviceWorker.ready);
-    await page.reload();
-    await wachtOpKaart(page);
-    assert.ok(await page.evaluate(() => !!navigator.serviceWorker.controller), 'de service worker regelt de pagina');
+// Een nieuwe versie op de server: andere code, en dus een andere vingerafdruk.
+async function zetNieuweVersie(n, { sw = false } = {}) {
+  await server.wijzig('js/format.js', (t) => `${t}\nwindow.__versie = ${n};\n`);
+  await server.wijzig('js/versie.js', (t) => t.replace(/VERSIE = '\w+'/, `VERSIE = 'test${n}'`));
+  if (sw) await server.wijzig('sw.js', (t) => `${t}\n// versie ${n}\n`);
+}
 
+// Een geopende app met de service worker die hem regelt.
+async function geopendeApp() {
+  const app = await telefoon({ sw: true });
+  await app.page.goto(`${server.url}?mock=1`);
+  await app.page.evaluate(() => navigator.serviceWorker.ready);
+  await app.page.reload();
+  await wachtOpKaart(app.page);
+  assert.ok(await app.page.evaluate(() => !!navigator.serviceWorker.controller), 'de service worker regelt de pagina');
+  return app;
+}
+
+const wachtOpMelding = (page) => page.waitForSelector('#nieuwe-versie:not([hidden])', { timeout: 5000 });
+
+test('een nieuwe versie wordt gemeld en met één tik geladen', async () => {
+  const { context, page, fouten } = await geopendeApp();
+  try {
     // Niets veranderd: geen melding.
     await page.click('#verversen');
     await page.waitForTimeout(800);
     assert.ok(await page.locator('#nieuwe-versie').isHidden());
 
-    // Een nieuwe versie op de server.
-    await server.wijzig('js/format.js', (t) => `${t}\nwindow.__versie = 2;\n`);
+    await zetNieuweVersie(2);
     await page.click('#verversen');
-    await page.waitForSelector('#nieuwe-versie:not([hidden])', { timeout: 5000 });
+    await wachtOpMelding(page);
     assert.equal(await page.evaluate(() => window.__versie), undefined, 'nog de oude versie tot je laadt');
     await Promise.all([page.waitForNavigation(), page.click('#versie-laden')]);
     assert.equal(await page.evaluate(() => window.__versie), 2);
+    await page.waitForTimeout(800);
+    assert.ok(await page.locator('#nieuwe-versie').isHidden(), 'na het laden geen melding meer');
 
     // Gewoon herladen geeft meteen de nieuwste, ondanks de tien minuten cache.
-    await server.wijzig('js/format.js', (t) => `${t}\nwindow.__versie = 3;\n`);
+    await zetNieuweVersie(3);
     await page.reload();
     assert.equal(await page.evaluate(() => window.__versie), 3);
     assert.deepEqual(fouten, []);
   } finally {
+    await server.herstel();
+    await context.close();
+  }
+});
+
+test('de melding komt ook als de service worker zich al had bijgewerkt', async () => {
+  // Zo ging het mis op de iPhone: met de nieuwe versie is ook sw.js anders,
+  // Safari zet de nieuwe service worker neer en stopt de oude voordat die de
+  // pagina iets kan vertellen. De cache is dan al nieuw, de pagina nog oud.
+  const { context, page, fouten } = await geopendeApp();
+  try {
+    await zetNieuweVersie(2, { sw: true });
+    await page.evaluate(async () => {
+      const gewisseld = new Promise((klaar) => navigator.serviceWorker.addEventListener('controllerchange', klaar));
+      await (await navigator.serviceWorker.getRegistration()).update();
+      await gewisseld;
+    });
+    await page.click('#verversen');
+    await wachtOpMelding(page);
+    await Promise.all([page.waitForNavigation(), page.click('#versie-laden')]);
+    assert.equal(await page.evaluate(() => window.__versie), 2);
+    assert.deepEqual(fouten, []);
+  } finally {
+    await server.herstel();
+    await context.close();
+  }
+});
+
+test('startte de app op een traag netwerk met de oude kopie, dan meldt hij zelf de nieuwe', async () => {
+  const { context, page, fouten } = await geopendeApp();
+  try {
+    await zetNieuweVersie(2, { sw: true });
+    server.vertraag('/', 4500);
+    await page.reload();
+    await wachtOpKaart(page);
+    assert.equal(await page.evaluate(() => window.__versie), undefined, 'de kopie uit de cache');
+    await wachtOpMelding(page);
+    server.vertraag('/', 0);
+    await Promise.all([page.waitForNavigation(), page.click('#versie-laden')]);
+    assert.equal(await page.evaluate(() => window.__versie), 2);
+    assert.deepEqual(fouten, []);
+  } finally {
+    server.vertraag('/', 0);
     await server.herstel();
     await context.close();
   }

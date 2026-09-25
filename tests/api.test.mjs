@@ -71,9 +71,13 @@ test('metPool: nooit meer dan n tegelijk, en alles komt aan de beurt', async () 
 // Een nagebootste Open-Meteo: per model een reeks antwoorden, één per poging.
 function nepApi(perModel) {
   const pogingen = {};
-  const vandaag = datumVoor('vandaag');
+  // Vandaag én morgen: na 20:00 haalt de app morgen op.
   const goed = {
-    daily: { time: [vandaag], temperature_2m_max: [20], precipitation_sum: [0] },
+    daily: {
+      time: [datumVoor('vandaag'), datumVoor('morgen')],
+      temperature_2m_max: [20, 20],
+      precipitation_sum: [0, 0]
+    },
     hourly: { time: [], temperature_2m: [], precipitation: [] }
   };
   globalThis.fetch = async (url) => {
