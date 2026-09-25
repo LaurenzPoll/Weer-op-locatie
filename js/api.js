@@ -16,6 +16,7 @@ import {
   TARGET_DATE,
   TERUGBLIK_KEY,
   TERUGBLIK_TTL_MS,
+  TIJDSLIMIET_MS,
   UITSLAG_DAGEN,
   dagenTerug,
   datumVoor,
@@ -58,12 +59,12 @@ const DAG_KERN = [
 ];
 const UUR_KERN = ['temperature_2m', 'precipitation'];
 
-export function bouwUrl(modelId, { kern = false } = {}) {
+export function bouwUrl(modelId, { kern = false, dagen = FORECAST_DAYS } = {}) {
   const p = new URLSearchParams({
     latitude: String(LOCATION.latitude),
     longitude: String(LOCATION.longitude),
     timezone: LOCATION.timezone,
-    forecast_days: String(FORECAST_DAYS),
+    forecast_days: String(dagen),
     daily: (kern ? DAG_KERN : DAG_VARIABELEN).join(','),
     hourly: (kern ? UUR_KERN : UUR_VARIABELEN).join(','),
     models: modelId,
@@ -116,8 +117,26 @@ async function haalMock(modelId) {
   };
 }
 
+// Een fetch die na TIJDSLIMIET_MS opgeeft, met een melding die je begrijpt.
+async function haalMetLimiet(url) {
+  const stop = new AbortController();
+  const klok = setTimeout(() => stop.abort(), TIJDSLIMIET_MS);
+  try {
+    return await fetch(url, { signal: stop.signal });
+  } catch (fout) {
+    if (stop.signal.aborted) {
+      const traag = new Error(`geen antwoord binnen ${TIJDSLIMIET_MS / 1000} seconden`);
+      traag.traag = true;
+      throw traag;
+    }
+    throw fout;
+  } finally {
+    clearTimeout(klok);
+  }
+}
+
 async function haalOp(url) {
-  const res = await fetch(url);
+  const res = await haalMetLimiet(url);
   let json = null;
   try {
     json = await res.json();
@@ -134,6 +153,8 @@ async function haalModel(modelId) {
   try {
     return await haalOp(bouwUrl(modelId));
   } catch (fout) {
+    // Te traag: niet nog eens tien seconden wachten op een tweede poging.
+    if (fout.traag) throw fout;
     // Tweede kans met alleen de kernvariabelen: waarschijnlijk kent dit model
     // één van de extra variabelen niet.
     try {
@@ -282,6 +303,15 @@ export async function haalAlles() {
 }
 
 /**
+ * Wat er van de vorige keer op dit apparaat staat, hoe oud ook: dat toont de
+ * app meteen, terwijl hij op de achtergrond nieuwe gegevens ophaalt.
+ */
+export function oudeVerwachtingen() {
+  const cache = leesCache();
+  return cache ? { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp } : null;
+}
+
+/**
  * Levert de verwachtingen, uit de cache als die nog vers is.
  */
 export async function laadVerwachtingen({ forceer = false } = {}) {
@@ -305,16 +335,20 @@ export async function laadVerwachtingen({ forceer = false } = {}) {
 // Eén klein verzoek met neerslag per kwartier (Best Match). Dat verandert snel,
 // dus geen cache: de app vraagt het opnieuw als het ouder is dan een kwartier.
 
-export async function laadRegenNu() {
-  if (mockAan) return mockRegenNu();
+export function bouwRegenNuUrl(plek = LOCATION) {
   const p = new URLSearchParams({
-    latitude: String(LOCATION.latitude),
-    longitude: String(LOCATION.longitude),
-    timezone: LOCATION.timezone,
+    latitude: String(plek.latitude),
+    longitude: String(plek.longitude),
+    timezone: plek.timezone,
     minutely_15: 'precipitation',
     forecast_minutely_15: '12'
   });
-  const ruw = await haalOp(`${API_BASE}?${p.toString()}`);
+  return `${API_BASE}?${p.toString()}`;
+}
+
+export async function laadRegenNu() {
+  if (mockAan) return mockRegenNu();
+  const ruw = await haalOp(bouwRegenNuUrl());
   const m = ruw?.minutely_15 ?? {};
   return (m.time ?? []).map((tijd, i) => ({ tijd, mm: getal(m.precipitation, i) }));
 }

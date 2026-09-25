@@ -21,6 +21,22 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="preload" href="fonts/big-shoulders-display-800.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
+    <!-- Alle scripts die app.js (direct of via via) nodig heeft, zodat de browser ze in één ronde
+         ophaalt in plaats van laag voor laag. De 8-bitscène hoort er niet bij: die komt pas bij het aanzetten. -->
+    <link rel="modulepreload" href="js/config.js" />
+    <link rel="modulepreload" href="js/models.js" />
+    <link rel="modulepreload" href="js/api.js" />
+    <link rel="modulepreload" href="js/stats.js" />
+    <link rel="modulepreload" href="js/charts.js" />
+    <link rel="modulepreload" href="js/iconen.js" />
+    <link rel="modulepreload" href="js/pixels.js" />
+    <link rel="modulepreload" href="js/format.js" />
+    <link rel="modulepreload" href="js/weercodes.js" />
+    <link rel="modulepreload" href="js/history.js" />
+    <link rel="modulepreload" href="js/uitslag.js" />
+    <link rel="modulepreload" href="js/zon.js" />
+    <link rel="modulepreload" href="js/nu.js" />
+    <link rel="modulepreload" href="js/plek.js" />
   </head>
   <body>
     <a class="overslaan" href="#modellen">Direct naar de modellen</a>

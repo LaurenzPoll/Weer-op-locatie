@@ -15,7 +15,7 @@ import {
   uurNu
 } from './config.js';
 import { GROEPEN, MODELLEN, kortNaam } from './models.js';
-import { laadMockHistorie, laadRegenNu, laadTerugblik, laadVerwachtingen } from './api.js';
+import { laadMockHistorie, laadRegenNu, laadTerugblik, laadVerwachtingen, oudeVerwachtingen } from './api.js';
 import { mediaan, samenvatting } from './stats.js';
 import { puntenWolk, trendLijn, uurGrafiek, uurRooster } from './charts.js';
 import * as f from './format.js';
@@ -982,8 +982,12 @@ const breedteVan = (id, aftrek = 0) =>
 
 let laatsteRender = null;
 
+// Voor welke dag er nu iets op het scherm staat.
+let getoondVoor = null;
+
 function render(resultaten, meta) {
   laatsteRender = { resultaten, meta };
+  getoondVoor = TARGET_DATE;
   const sam = samenvatting(resultaten);
 
   const lucht = el('consensus');
@@ -1008,7 +1012,8 @@ function render(resultaten, meta) {
   plaatsScene();
 
   const delen = [`bijgewerkt ${f.datumTijd(meta.opgehaaldOp)}`];
-  if (meta.offline) delen.push('geen verbinding — laatst bekende gegevens');
+  if (meta.bijwerken) delen.push('nieuwe gegevens ophalen…');
+  else if (meta.offline) delen.push('geen verbinding — laatst bekende gegevens');
   else if (meta.uitCache) delen.push('uit lokale cache');
   zetStatus(delen.join(' · '));
 }
@@ -1056,9 +1061,12 @@ function ververRegenNu() {
   return regenNuLaden;
 }
 
+// Loopt er al een ophaal, dan wachten we die af in plaats van een tweede te starten.
+let bezig = false;
+
 function gegevensVerouderd() {
   const opgehaald = laatsteRender?.meta?.opgehaaldOp;
-  return !!opgehaald && Date.now() - new Date(opgehaald).getTime() >= CACHE_TTL_MS;
+  return !bezig && !!opgehaald && Date.now() - new Date(opgehaald).getTime() >= CACHE_TTL_MS;
 }
 
 async function laad({ forceer = false } = {}) {
@@ -1066,9 +1074,17 @@ async function laad({ forceer = false } = {}) {
   const knop = el('verversen');
   knop.disabled = true;
   knop.classList.add('draait');
+  bezig = true;
   zetStatus('verwachtingen ophalen…');
   if (forceer) regenNu = null;
   if (TARGET_DATE === datumVoor('vandaag')) ververRegenNu();
+  // Staat er nog niets op het scherm voor deze dag, dan meteen wat er van de
+  // vorige keer bewaard is, ook als het ouder is dan een half uur: liever iets
+  // te zien terwijl de 22 modellen antwoorden dan een lege kaart.
+  const oud = !forceer && getoondVoor !== TARGET_DATE ? oudeVerwachtingen() : null;
+  if (oud && Date.now() - new Date(oud.opgehaaldOp).getTime() >= CACHE_TTL_MS) {
+    render(oud.resultaten, { opgehaaldOp: oud.opgehaaldOp, uitCache: true, bijwerken: true, historie: leesHistorie() });
+  }
   try {
     const { resultaten, perDag, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
     // Een verse ophaal bevat vandaag én morgen; beide gaan de trend in, welke
@@ -1089,6 +1105,7 @@ async function laad({ forceer = false } = {}) {
     if (beurt === laadBeurt) {
       knop.disabled = false;
       knop.classList.remove('draait');
+      bezig = false;
     }
   }
 }

@@ -17,7 +17,8 @@ const kleur = process.stdout.isTTY
 
 async function controleer(m) {
   const probeer = async (kern) => {
-    const res = await fetch(bouwUrl(m.id, { kern }));
+    // De volle 16 dagen: hier gaat het juist om hoe ver elk model reikt.
+    const res = await fetch(bouwUrl(m.id, { kern, dagen: 16 }));
     const json = await res.json();
     if (json.error) throw new Error(json.reason ?? `HTTP ${res.status}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
