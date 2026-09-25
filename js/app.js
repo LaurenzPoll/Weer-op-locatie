@@ -34,6 +34,7 @@ import { zonOpOnder } from './zon.js';
 import { regenKomend } from './nu.js';
 import { plekParameters, zetPlekkenOp } from './plek.js';
 import { uurKolommen } from './uren.js';
+import { VERSIE } from './versie.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
 const el = (id) => document.getElementById(id);
@@ -1445,18 +1446,35 @@ function zetModelLinksOp() {
 // Wie de app opent, krijgt van de service worker altijd de nieuwste versie.
 // Maar een app op het beginscherm van de iPhone begint niet opnieuw als je hem
 // terughaalt; hij gaat verder waar hij was. Daarom vraagt de pagina dan aan de
-// service worker of er intussen iets nieuws staat, en biedt hem onderin aan.
+// server welke versie er staat (een klein bestand) en vergelijkt die met haar
+// eigen versie; verschillen ze, dan biedt ze de nieuwe onderin aan. Omdat de
+// pagina haar eigen versie kent, mist ze een nieuwe nooit, ook niet als de
+// service worker zijn cache intussen al heeft bijgewerkt.
 // Onderaan de pagina kun je ook altijd zelf opnieuw laden.
 
+const VERSIEBESTAND = new URL('./versie.js', import.meta.url);
 let nieuweVersie = false;
 
-function controleerVersie() {
-  if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.controller?.postMessage('controleer');
+function toonNieuweVersie() {
+  if (nieuweVersie) return;
+  nieuweVersie = true;
+  el('nieuwe-versie').hidden = false;
+  navigator.serviceWorker?.controller?.postMessage('ververs');
+}
+
+async function controleerVersie() {
+  if (!location.protocol.startsWith('http')) return;
+  try {
+    const antwoord = await fetch(VERSIEBESTAND, { cache: 'no-store' });
+    const opServer = antwoord.ok && (await antwoord.text()).match(/VERSIE = '(\w+)'/)?.[1];
+    if (opServer && opServer !== VERSIE) toonNieuweVersie();
+  } catch {
+    // Geen verbinding: dan de volgende keer.
+  }
   // Ook de service worker zelf kan nieuw zijn; normaal kijkt de browser daar
   // pas naar bij de volgende keer openen.
   navigator.serviceWorker
-    .getRegistration()
+    ?.getRegistration()
     .then((r) => r?.update())
     .catch(() => {});
 }
@@ -1466,22 +1484,20 @@ function zetVersieOp() {
   el('herladen').addEventListener('click', herlaad);
   el('versie-laden').addEventListener('click', herlaad);
 
-  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
-  navigator.serviceWorker.addEventListener('message', (e) => {
-    if (e.data !== 'nieuwe-versie') return;
-    nieuweVersie = true;
-    el('nieuwe-versie').hidden = false;
-  });
+  if (!location.protocol.startsWith('http')) return;
 
-  // Niet bij elk trekje aan het berichtencentrum; eens per minuut is genoeg.
+  // Bij het openen (kreeg de pagina op een traag netwerk de kopie, dan is ze
+  // misschien al oud) en bij terugkomen; niet bij elk trekje aan het
+  // berichtencentrum, eens per minuut is genoeg.
   let laatst = Date.now();
+  controleerVersie();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || Date.now() - laatst < 60_000) return;
     laatst = Date.now();
     controleerVersie();
   });
 
-  navigator.serviceWorker.register('./sw.js').catch(() => {
+  navigator.serviceWorker?.register('./sw.js').catch(() => {
     // Zonder service worker werkt de app gewoon, alleen niet offline.
   });
 }

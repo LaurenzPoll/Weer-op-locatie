@@ -89,13 +89,13 @@ De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modelle
 
 ## Tests
 
-De rekenkern heeft tests: het oordeel en de spreiding, "Wie had gelijk?", het normaliseren van de antwoorden, zonsopkomst en -ondergang, de zin over regen in het komende uur, de datums in de tijdzone van de plek, en of de service worker elk bestand van de app kent. Ze gebruiken alleen wat Node (22 of nieuwer) aan boord heeft:
+De rekenkern heeft tests: het oordeel en de spreiding, "Wie had gelijk?", het normaliseren van de antwoorden, zonsopkomst en -ondergang, de zin over regen in het komende uur, de datums in de tijdzone van de plek, of de service worker elk bestand van de app kent, en of de versie in `js/versie.js` bij de code hoort. Ze gebruiken alleen wat Node (22 of nieuwer) aan boord heeft:
 
 ```bash
 node --test tests/*.test.mjs
 ```
 
-Daarnaast zijn er browsertests die de app in Chromium doorlopen, tegen een server die GitHub Pages nabootst: een nieuwe versie melden en laden, offline starten, oude gegevens meteen tonen, een plek kiezen, delen, de nu-markering, de 8-bitmodus, en het echte API-pad waarin één model nooit antwoordt. Daarvoor is het npm-pakket `playwright` nodig:
+Daarnaast zijn er browsertests die de app in Chromium doorlopen, tegen een server die GitHub Pages nabootst: een nieuwe versie melden en laden (ook als de service worker zich al had bijgewerkt, en na een trage start uit de cache), offline starten, oude gegevens meteen tonen, een plek kiezen, delen, de nu-markering, de 8-bitmodus, en het echte API-pad waarin één model nooit antwoordt. Daarvoor is het npm-pakket `playwright` nodig:
 
 ```bash
 npm install --no-save playwright && npx playwright install chromium
@@ -130,9 +130,15 @@ Het schrijft `apple-touch-icon.png` (180 × 180, voor het beginscherm van de iPh
 
 ## Nieuwe versies
 
-De service worker ([`sw.js`](sw.js)) haalt de eigen bestanden eerst van het netwerk en valt pas terug op zijn cache als er geen verbinding is, of als het netwerk na 3 seconden nog niets heeft gegeven. Wie de app opent, krijgt dus altijd de nieuwste versie in zijn geheel, zonder de tien minuten die GitHub Pages bestanden laat cachen. Een versienummer ophogen is daarvoor niet nodig.
+De service worker ([`sw.js`](sw.js)) haalt de eigen bestanden eerst van het netwerk en valt pas terug op zijn cache als er geen verbinding is, of als het netwerk na 3 seconden nog niets heeft gegeven. Wie de app opent, krijgt dus altijd de nieuwste versie in zijn geheel, zonder de tien minuten die GitHub Pages bestanden laat cachen.
 
-Een app op het beginscherm begint niet opnieuw als je hem terughaalt, maar gaat verder waar hij was. Daarom vergelijkt de app bij terugkomst (en bij een tik op verversen) de code met die op de server; is er iets veranderd, dan verschijnt onderin *Er is een nieuwe versie* met een knop om hem te laden. Helemaal onderaan de pagina staat bovendien altijd een knop *Nieuwste versie laden*.
+Een app op het beginscherm begint niet opnieuw als je hem terughaalt, maar gaat verder waar hij was. Daarom kent de app zijn eigen versie: [`js/versie.js`](js/versie.js) bevat een vingerafdruk van de pagina, de opmaak en alle scripts. Bij het openen, bij terugkomst en bij een tik op verversen haalt de app dat kleine bestand van de server (buiten de cache om) en vergelijkt het met zijn eigen versie; verschillen ze, dan verschijnt onderin *Er is een nieuwe versie* met een knop om hem te laden. Omdat de vergelijking met de versie gaat die de pagina zelf draait, en niet met de cache van de service worker, mist ze een nieuwe versie nooit — ook niet als de service worker zijn cache intussen al had bijgewerkt, wat op de iPhone gebeurt als ook `sw.js` verandert. Helemaal onderaan de pagina staat bovendien altijd een knop *Nieuwste versie laden*.
+
+Na elke wijziging aan de pagina, de opmaak of de scripts werk je de vingerafdruk bij (de tests falen als het vergeten is):
+
+```bash
+node scripts/versie.mjs
+```
 
 ## Publiceren
 

@@ -19,8 +19,7 @@ const TE_LAAT = 'te laat';
 // wacht niet voor elk bestand opnieuw op een traag netwerk.
 let kopieTot = 0;
 
-// Alles wat de pagina bij het starten laadt. Verschilt hiervan iets met de
-// server, dan draait de pagina een oude versie.
+// Alles wat de pagina bij het starten laadt.
 const CODE = [
   './',
   './styles.css',
@@ -44,7 +43,8 @@ const CODE = [
   './js/zon.js',
   './js/nu.js',
   './js/plek.js',
-  './js/uren.js'
+  './js/uren.js',
+  './js/versie.js'
 ];
 
 // Wat verder offline moet werken, maar geen reden is om opnieuw te laden.
@@ -63,7 +63,6 @@ const BIJLAGEN = [
 ];
 
 const THUIS = new URL('./', self.location).href;
-const IS_CODE = new Set(CODE.map((pad) => new URL(pad, self.location).href));
 
 // Altijd bij de server navragen (met een ETag is dat een klein verzoek), in
 // plaats van op de browsercache te vertrouwen.
@@ -91,12 +90,19 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   // Alleen eigen bestanden; verzoeken naar Open-Meteo laten we ongemoeid.
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // De versiecontrole van de pagina wil weten wat er nu op de server staat,
+  // nooit een kopie: die gaat rechtstreeks naar het netwerk.
+  if (e.request.cache === 'no-store') return;
   e.respondWith(netwerkEerst(e));
 });
 
-// De pagina vraagt dit als je de app terughaalt of op verversen tikt.
 self.addEventListener('message', (e) => {
-  if (e.data === 'controleer') e.waitUntil(controleer().catch(() => {}));
+  // De pagina zag een nieuwe versie op de server: alvast in de cache, zodat
+  // opnieuw laden hem ook op een traag netwerk meteen heeft.
+  if (e.data === 'ververs') e.waitUntil(ververs().catch(() => {}));
+  // Pagina's van vóór de versiecontrole in de pagina zelf vragen nog dit.
+  // Wie het vraagt, draait dus een oude versie.
+  else if (e.data === 'controleer') e.source?.postMessage('nieuwe-versie');
 });
 
 // Een navigatie naar de app (met of zonder ?dag=…) is altijd dezelfde pagina;
@@ -124,50 +130,18 @@ async function netwerkEerst(e) {
       ? await Promise.race([netwerk.catch(() => null), new Promise((klaar) => setTimeout(klaar, GEDULD, TE_LAAT))])
       : TE_LAAT;
   if (antwoord && antwoord !== TE_LAAT && (antwoord.ok || antwoord.type === 'opaqueredirect')) return antwoord;
+  // Wat het netwerk later nog brengt, komt hierboven in de cache; dat de
+  // pagina dan oud is, ziet ze zelf aan haar versie.
   if (navigatie) kopieTot = Date.now() + 10_000;
-  if (antwoord !== TE_LAAT) return kopie;
-
-  // Te traag: nu de kopie. Blijkt het netwerk straks iets anders te hebben,
-  // dan hoort de pagina dat er een nieuwe versie klaarstaat.
-  const reserve = kopie.clone();
-  e.waitUntil(
-    netwerk
-      .then(async (nieuw) => {
-        if (nieuw.ok && IS_CODE.has(sleutel) && (await verschilt(reserve, nieuw))) await meldNieuweVersie();
-      })
-      .catch(() => {})
-  );
   return kopie;
 }
 
-// Vraag de code van de app opnieuw op en vergelijk die met wat de pagina de
-// vorige keer kreeg. Is er iets anders, dan komt de nieuwe versie in de cache
-// en hoort de pagina dat hij opnieuw kan laden.
-async function controleer() {
+async function ververs() {
   const cache = await caches.open(CACHE);
-  const anders = await Promise.all(
+  await Promise.all(
     CODE.map(async (pad) => {
-      const [oud, nieuw] = await Promise.all([cache.match(pad), haal(pad)]);
-      if (!nieuw.ok) return false;
-      if (oud && !(await verschilt(oud, nieuw.clone()))) return false;
-      await cache.put(pad, nieuw);
-      return Boolean(oud);
+      const nieuw = await haal(pad);
+      if (nieuw.ok) await cache.put(pad, nieuw);
     })
   );
-  if (anders.some(Boolean)) await meldNieuweVersie();
-}
-
-// Byte voor byte; de bestanden zijn klein.
-async function verschilt(a, b) {
-  const [x, y] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]);
-  if (x.byteLength !== y.byteLength) return true;
-  const p = new Uint8Array(x);
-  const q = new Uint8Array(y);
-  for (let i = 0; i < p.length; i++) if (p[i] !== q[i]) return true;
-  return false;
-}
-
-async function meldNieuweVersie() {
-  const ramen = await self.clients.matchAll({ type: 'window' });
-  ramen.forEach((raam) => raam.postMessage('nieuwe-versie'));
 }
