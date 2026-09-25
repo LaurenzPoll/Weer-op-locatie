@@ -33,6 +33,7 @@ import {
 import { NAT_MM, RAAK_GRADEN, beoordeel, ranglijst } from './uitslag.js';
 import { zonOpOnder } from './zon.js';
 import { regenKomend } from './nu.js';
+import { plekParameters, zetPlekkenOp } from './plek.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
 const el = (id) => document.getElementById(id);
@@ -52,10 +53,15 @@ const STATUS_ORDE = { ok: 0, buiten_bereik: 1, geen_dekking: 2, fout: 3 };
 
 function vulKop() {
   el('plaats').textContent = LOCATION.naam;
+  el('balk-titel').textContent = LOCATION.naam;
+  // Een lange plaatsnaam past niet in de grote letter; het langste woord
+  // bepaalt hoeveel kleiner hij moet.
+  const langste = Math.max(...LOCATION.naam.split(/\s+/).map((w) => w.length));
+  el('plaats').style.fontSize = langste > 12 ? `${Math.max(34, Math.floor((58 * 12) / langste))}px` : '';
   el('regio').textContent = LOCATION.regio;
   // Het scheidingsteken komt met de datum mee, zodat er vóór het laden geen los
   // puntje achter de regio staat.
-  el('datum').textContent = ` · ${f.weekdagDatum(TARGET_DATE)}`;
+  el('datum').textContent = `${LOCATION.regio ? ' · ' : ''}${f.weekdagDatum(TARGET_DATE)}`;
   const knoppen = el('dag-knoppen');
   knoppen.style.setProperty('--i', String(DAGKEUZES.indexOf(DAG)));
   knoppen
@@ -203,8 +209,57 @@ function consensusHtml(sam, resultaten) {
       <span class="oordeel-icoon" aria-hidden="true">${sam.oordeel.icoon}</span>
       <p><strong>${esc(sam.oordeel.tekst)}</strong> ${esc(sam.oordeel.reden)}.</p>
     </div>
-    <p class="lucht-dekking">${esc(dekking)}.</p>
+    <div class="lucht-voet">
+      <p class="lucht-dekking">${esc(dekking)}.</p>
+      <button type="button" class="lucht-deel" data-actie="delen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M7 11H5.5A1.5 1.5 0 0 0 4 12.5v7A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5H17"/></svg>
+        Delen
+      </button>
+    </div>
     </div>`;
+}
+
+// ---------------------------------------------------------------------- delen
+// Het oordeel als een paar zinnen, voor een appje of een bericht. De link
+// opent dezelfde dag op dezelfde plek.
+
+function deelTekst() {
+  if (!laatsteRender) return null;
+  const sam = samenvatting(laatsteRender.resultaten);
+  if (!sam.oordeel) return null;
+  const beeld = meesteWeerbeeld(laatsteRender.resultaten);
+  const dag = DAG === 'morgen' ? 'Morgen' : 'Vandaag';
+  const regels = [
+    `${dag} in ${LOCATION.naam} (${f.weekdagDatum(TARGET_DATE)}): ${Math.round(sam.temp.mediaan)}° en ` +
+      `${LUCHT_TEKST[beeld.naam].toLowerCase()}, volgens de mediaan van ${sam.temp.aantal} weermodellen.`,
+    `${sam.oordeel.tekst}: ${sam.oordeel.reden}.`
+  ];
+  const komend = komendeRegen();
+  if (komend) regels.push(`${komend.kop}${komend.rest ? `, ${komend.rest}` : ''}.`);
+  return regels.join(' ');
+}
+
+async function deel() {
+  const tekst = deelTekst();
+  if (!tekst) return;
+  const url = new URL(location.href);
+  url.search = '';
+  for (const [k, w] of Object.entries({ dag: DAG, ...plekParameters() })) if (w) url.searchParams.set(k, w);
+  const titel = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: titel, text: tekst, url: url.href });
+    } catch {
+      // Weggetikt: niets aan de hand.
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(`${tekst}\n${url.href}`);
+    meld('Gekopieerd. Plak het waar je wilt.');
+  } catch {
+    meld('Delen lukt hier niet.');
+  }
 }
 
 // ------------------------------------------------------------------ spreiding
@@ -965,10 +1020,15 @@ function render(resultaten, meta) {
 let regenNu = null;
 let regenNuLaden = null;
 
+function komendeRegen() {
+  if (TARGET_DATE !== datumVoor('vandaag') || !regenNu) return null;
+  return regenKomend(regenNu.kwartieren, tijdOpLocatie());
+}
+
 function toonRegenNu() {
   const p = el('lucht-nu');
   if (!p) return;
-  const komend = TARGET_DATE === datumVoor('vandaag') && regenNu ? regenKomend(regenNu.kwartieren, tijdOpLocatie()) : null;
+  const komend = komendeRegen();
   p.hidden = !komend;
   if (!komend) return;
   // Een volle druppel als het nu regent, een lege als het (nog) droog is.
@@ -1181,7 +1241,9 @@ function zet8bit(aan, { melden = true } = {}) {
   if (aan) laadScene();
   if (laatsteRender) render(laatsteRender.resultaten, laatsteRender.meta);
   else plaatsScene();
-  if (melden) meld(aan ? '8-bit aan. Tik nog eens vijf keer op HEERLEN om terug te gaan.' : '8-bit uit.');
+  if (melden) {
+    meld(aan ? `8-bit aan. Tik nog eens vijf keer op ${LOCATION.naam.toUpperCase()} om terug te gaan.` : '8-bit uit.');
+  }
 }
 
 function zet8bitOp() {
@@ -1294,6 +1356,7 @@ function start() {
   zetTooltipOp();
   zetBalkOp();
   zetModelLinksOp();
+  zetPlekkenOp();
   zet8bitOp();
 
   // Draait de telefoon of verandert het venster van breedte, dan tekenen we de
@@ -1307,6 +1370,9 @@ function start() {
       vorigeBreedte = window.innerWidth;
       render(laatsteRender.resultaten, laatsteRender.meta);
     }, 150);
+  });
+  el('consensus').addEventListener('click', (e) => {
+    if (e.target.closest('[data-actie="delen"]')) deel();
   });
   el('verversen').addEventListener('click', () => {
     // Staat er een nieuwe versie klaar, dan is opnieuw laden de beste verversing.

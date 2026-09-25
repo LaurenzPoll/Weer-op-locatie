@@ -42,7 +42,8 @@ const CODE = [
   './js/uitslag.js',
   './js/weercodes.js',
   './js/zon.js',
-  './js/nu.js'
+  './js/nu.js',
+  './js/plek.js'
 ];
 
 // Wat verder offline moet werken, maar geen reden is om opnieuw te laden.

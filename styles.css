@@ -300,7 +300,7 @@ body::before {
 .balk-binnen {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-height: 58px;
 }
 /* In rust neemt de kleine titel geen ruimte in en vult de dagknop de balk, in
@@ -309,7 +309,7 @@ body::before {
 .balk-titel {
   flex: none;
   max-width: 0;
-  margin: 0 -12px 0 0;
+  margin: 0 -10px 0 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -326,12 +326,35 @@ body::before {
   margin-right: 0;
   opacity: 1;
 }
+/* De plekknop hoort bij de kop: in de ingeklapte balk maakt hij plaats voor de
+   titel, zodat de dagknop ook op een smalle iPhone ruim blijft. */
+#plek-knop {
+  transition:
+    width 0.3s var(--veer),
+    margin 0.3s var(--veer),
+    opacity 0.2s ease,
+    visibility 0s linear 0s,
+    transform 0.15s var(--veer);
+}
+.balk.is-vast #plek-knop {
+  width: 0;
+  margin-left: -10px;
+  opacity: 0;
+  visibility: hidden;
+  overflow: hidden;
+  box-shadow: none;
+  transition:
+    width 0.3s var(--veer),
+    margin 0.3s var(--veer),
+    opacity 0.2s ease,
+    visibility 0s linear 0.3s;
+}
 /* Op een heel smal scherm (een kleine iPhone met ingezoomde weergave) past de
    titel er niet naast zonder de dagknop te pletten; dan blijft hij weg. */
 @media (max-width: 359px) {
   .balk.is-vast .balk-titel {
     max-width: 0;
-    margin-right: -12px;
+    margin-right: -10px;
     opacity: 0;
   }
 }
@@ -775,10 +798,46 @@ main {
   display: none;
 }
 
+.lucht-voet {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
 .lucht-dekking {
-  margin: 12px 0 0;
+  margin: 0;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.72);
+}
+.lucht-deel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s var(--veer);
+}
+.lucht-deel:active {
+  transform: scale(0.95);
+}
+.lucht-deel svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .lucht-laden {
@@ -1979,6 +2038,189 @@ svg.trend {
   transform: none;
 }
 
+/* ------------------------------------------------------------- plek kiezen */
+/* Een blad dat van boven binnenkomt: onderin zou het toetsenbord van de iPhone
+   de zoekresultaten afdekken. */
+
+.blad {
+  width: min(100% - 24px, 460px);
+  max-height: calc(100% - env(safe-area-inset-top) - 24px);
+  margin: calc(env(safe-area-inset-top) + 12px) auto auto;
+  padding: 8px 16px 18px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--plane);
+  color: var(--text-1);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5);
+  overscroll-behavior: contain;
+}
+.blad[open] {
+  animation: blad-in 0.3s var(--veer);
+}
+.blad::backdrop {
+  background: rgba(8, 12, 20, 0.4);
+}
+@keyframes blad-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+.blad-kop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+}
+.blad-kop h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+.blad-sluit {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-right: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--segment-bak);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.blad svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.zoekveld {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--segment-bak);
+  color: var(--muted);
+}
+.zoekveld input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  /* 16 punten of meer: anders zoomt Safari in zodra je erin tikt. */
+  font: inherit;
+  font-size: 17px;
+  outline: none;
+}
+.zoekveld:focus-within {
+  outline: 2px solid var(--accent);
+}
+.plek-melding {
+  margin: 12px 4px 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.plek-lijst {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.plek-rij {
+  display: flex;
+  align-items: center;
+}
+.plek-rij + .plek-rij {
+  border-top: 1px solid var(--rand);
+  margin-left: 16px;
+}
+.plek-rij + .plek-rij .plek-kies {
+  padding-left: 0;
+}
+.plek-kies {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-height: 52px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.plek-kies:active {
+  background: var(--wash);
+}
+.plek-naam {
+  font-size: 16px;
+  font-weight: 600;
+}
+.plek-regio {
+  font-size: 13px;
+  color: var(--muted);
+}
+.plek-vink {
+  flex: none;
+  padding: 0 16px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.plek-weg {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+}
+.plek-hier {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: var(--schaduw);
+  color: var(--accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.plek-kop {
+  margin: 22px 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.plek-uitleg {
+  margin: 12px 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ---------------------------------------------------------------- melding */
 
 .melding {
@@ -2147,6 +2389,7 @@ body:has(.versie-melding:not([hidden])) .voet {
 }
 
 /* Vierkante hoeken, zoals op een scherm van toen. */
+[data-modus='8bit'] :is(.lucht-nu, .lucht-deel, .blad, .zoekveld, .plek-hier, .blad-sluit, .rooster thead th.is-nu),
 [data-modus='8bit'] :is(.lucht, .paneel, .lijst, .segment, .segment button, .rondknop, .oordeel, .oordeel-icoon, .chip,
     .merk, .waarden, .rooster tbody td, .legenda-balk span, .tip, .figuur-tegel, .koor-band, .koor-baan i, .stand-reeks i) {
   border-radius: 0;
@@ -2400,7 +2643,8 @@ body:has(.versie-melding:not([hidden])) .voet {
   .balk,
   .tip,
   .versie-melding,
-  .voet-knop {
+  .voet-knop,
+  .lucht-deel {
     display: none !important;
   }
   .paneel,

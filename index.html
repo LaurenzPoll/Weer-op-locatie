@@ -32,11 +32,17 @@
 
     <div class="balk" id="balk">
       <div class="omhulsel balk-binnen">
-        <p class="balk-titel" aria-hidden="true">Heerlen</p>
+        <p class="balk-titel" id="balk-titel" aria-hidden="true">Heerlen</p>
         <div id="dag-knoppen" class="segment" role="group" aria-label="Kies de dag" style="--n: 2; --i: 0">
           <button type="button" data-dag="vandaag" aria-pressed="false">Vandaag</button>
           <button type="button" data-dag="morgen" aria-pressed="false">Morgen</button>
         </div>
+        <button id="plek-knop" type="button" class="rondknop" aria-label="Andere plek kiezen" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+            <circle cx="12" cy="10" r="2.4" />
+          </svg>
+        </button>
         <button id="verversen" type="button" class="rondknop" aria-label="Verversen">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M19.4 13.2a7.5 7.5 0 1 1-2.1-6.5" />
@@ -139,6 +145,32 @@
         Nieuwste versie laden
       </button>
     </footer>
+
+    <dialog id="plekken" class="blad" aria-labelledby="plekken-titel">
+      <form method="dialog" class="blad-kop">
+        <h2 id="plekken-titel">Plek kiezen</h2>
+        <button class="blad-sluit" aria-label="Sluiten">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </form>
+      <label class="zoekveld">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20" /></svg>
+        <span class="enkel-lezer">Zoek een plaats</span>
+        <input id="plek-zoek" type="search" placeholder="Zoek een plaats" autocomplete="off" enterkeyhint="search" />
+      </label>
+      <p id="plek-melding" class="plek-melding" role="status" hidden></p>
+      <ul id="plek-resultaten" class="lijst plek-lijst" aria-label="Gevonden plaatsen" hidden></ul>
+      <button id="plek-hier" type="button" class="plek-hier">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4L3.5 11l7 2.5L13 20.5z" /></svg>
+        Gebruik mijn locatie
+      </button>
+      <h3 class="plek-kop">Bewaard</h3>
+      <ul id="plek-bewaard" class="lijst plek-lijst"></ul>
+      <p class="plek-uitleg">
+        Elke plek houdt zijn eigen trend en "Wie had gelijk?" bij. Plaatsen zoeken gaat via Open-Meteo; je locatie
+        blijft op dit apparaat.
+      </p>
+    </dialog>
 
     <div id="tip" class="tip" role="tooltip" aria-hidden="true"></div>
     <div id="nieuwe-versie" class="versie-melding" role="status" hidden>
