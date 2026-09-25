@@ -80,3 +80,31 @@ export function ranglijst(dagen) {
     .map((s) => ({ ...s, gemFout: s.somFout / s.dagen, gemAfwijking: s.somAfwijking / s.dagen }))
     .sort((a, b) => a.gemFout - b.gemFout || b.dagen - a.dagen);
 }
+
+// Vanaf zoveel beoordeelde dagen telt een model mee voor "beste van de week":
+// één goede dag zegt nog niets.
+export const MIN_DAGEN_BESTE = 4;
+
+/** De modellen die het hier de afgelopen dagen het best deden, beste eerst. */
+export function besteModellen(stand, aantal = 3, minDagen = MIN_DAGEN_BESTE) {
+  return stand.filter((s) => s.dagen >= minDagen).slice(0, aantal);
+}
+
+/**
+ * Wat een groep modellen voor de gekozen dag zegt: de middagtemperaturen van
+ * laag naar hoog en hoeveel ervan nat zijn. Alleen modellen met een verwachting.
+ */
+export function verwachtingVan(resultaten, ids) {
+  const erbij = ids
+    .map((id) => resultaten.find((r) => r.id === id))
+    .filter((r) => r?.status === 'ok' && r.dag?.tempMax != null && r.dag?.neerslag != null);
+  if (!erbij.length) return null;
+  const temps = erbij.map((r) => r.dag.tempMax);
+  return {
+    ids: erbij.map((r) => r.id),
+    laag: Math.min(...temps),
+    hoog: Math.max(...temps),
+    nat: erbij.filter((r) => r.dag.neerslag >= NAT_MM).length,
+    aantal: erbij.length
+  };
+}

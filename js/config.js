@@ -141,11 +141,18 @@ export const API_BASE = 'https://api.open-meteo.com/v1/forecast';
 // De modellen worden hoogstens elk uur bijgewerkt, dus vaker dan dit heeft geen zin.
 export const CACHE_TTL_MS = 30 * 60 * 1000;
 
-// Hoeveel dagen we in één keer opvragen. 16 is het maximum van de API.
+// Hoeveel dagen we in één keer opvragen. De app gaat over vandaag en morgen;
+// de derde dag is er zodat morgen ook vlak voor middernacht compleet is, en
+// zodat een model dat morgen niet haalt nog steeds zijn echte horizon laat zien.
+// Meer dagen kost alleen data: 16 dagen uur-voor-uur is zo'n vijf keer zoveel.
 // We vragen bewust een vast aantal dagen op in plaats van een datumbereik:
 // modellen die maar 2,5 dag vooruitkijken geven op een datumbereik buiten hun
 // horizon een harde fout, terwijl ze op forecast_days simpelweg korter antwoorden.
-export const FORECAST_DAYS = 16;
+export const FORECAST_DAYS = 3;
+
+// Zo lang wachten we op één antwoord van Open-Meteo. Eén traag model mag de
+// hele pagina niet ophouden; het krijgt dan de status "ophalen mislukt".
+export const TIJDSLIMIET_MS = 10 * 1000;
 
 // localStorage-sleutels. Verhoog het versienummer als de opslagvorm verandert.
 // Elke plek heeft zijn eigen cache, trend en "Wie had gelijk?"; de standaardplek

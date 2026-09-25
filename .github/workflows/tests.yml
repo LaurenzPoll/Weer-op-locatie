@@ -1,7 +1,10 @@
 name: Tests
 
-# De rekenkern (oordeel, "Wie had gelijk?", zon, regen komend uur) en de
-# bestandenlijst van de service worker, bij elke push en elk pull request.
+# Bij elke push en elk pull request:
+# - de rekenkern (oordeel, "Wie had gelijk?", zon, regen komend uur) en de
+#   bestandenlijsten van de service worker en de pagina, alleen met Node;
+# - de app in Chromium: nieuwe versie, offline, oude gegevens meteen, plek
+#   kiezen, delen, nu-markering, 8-bit en het echte API-pad met een traag model.
 
 on:
   push:
@@ -11,9 +14,23 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
       - name: Tests draaien
         run: node --test tests/*.test.mjs
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Playwright en Chromium installeren
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browsertests draaien
+        run: node --test tests/browser/*.browser.mjs

@@ -16,6 +16,7 @@ import {
   TARGET_DATE,
   TERUGBLIK_KEY,
   TERUGBLIK_TTL_MS,
+  TIJDSLIMIET_MS,
   UITSLAG_DAGEN,
   dagenTerug,
   datumVoor,
@@ -58,12 +59,12 @@ const DAG_KERN = [
 ];
 const UUR_KERN = ['temperature_2m', 'precipitation'];
 
-export function bouwUrl(modelId, { kern = false } = {}) {
+export function bouwUrl(modelId, { kern = false, dagen = FORECAST_DAYS } = {}) {
   const p = new URLSearchParams({
     latitude: String(LOCATION.latitude),
     longitude: String(LOCATION.longitude),
     timezone: LOCATION.timezone,
-    forecast_days: String(FORECAST_DAYS),
+    forecast_days: String(dagen),
     daily: (kern ? DAG_KERN : DAG_VARIABELEN).join(','),
     hourly: (kern ? UUR_KERN : UUR_VARIABELEN).join(','),
     models: modelId,
@@ -116,8 +117,26 @@ async function haalMock(modelId) {
   };
 }
 
+// Een fetch die na TIJDSLIMIET_MS opgeeft, met een melding die je begrijpt.
+async function haalMetLimiet(url) {
+  const stop = new AbortController();
+  const klok = setTimeout(() => stop.abort(), TIJDSLIMIET_MS);
+  try {
+    return await fetch(url, { signal: stop.signal });
+  } catch (fout) {
+    if (stop.signal.aborted) {
+      const traag = new Error(`geen antwoord binnen ${TIJDSLIMIET_MS / 1000} seconden`);
+      traag.traag = true;
+      throw traag;
+    }
+    throw fout;
+  } finally {
+    clearTimeout(klok);
+  }
+}
+
 async function haalOp(url) {
-  const res = await fetch(url);
+  const res = await haalMetLimiet(url);
   let json = null;
   try {
     json = await res.json();
@@ -134,6 +153,8 @@ async function haalModel(modelId) {
   try {
     return await haalOp(bouwUrl(modelId));
   } catch (fout) {
+    // Te traag: niet nog eens tien seconden wachten op een tweede poging.
+    if (fout.traag) throw fout;
     // Tweede kans met alleen de kernvariabelen: waarschijnlijk kent dit model
     // één van de extra variabelen niet.
     try {
@@ -282,6 +303,15 @@ export async function haalAlles() {
 }
 
 /**
+ * Wat er van de vorige keer op dit apparaat staat, hoe oud ook: dat toont de
+ * app meteen, terwijl hij op de achtergrond nieuwe gegevens ophaalt.
+ */
+export function oudeVerwachtingen() {
+  const cache = leesCache();
+  return cache ? { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp } : null;
+}
+
+/**
  * Levert de verwachtingen, uit de cache als die nog vers is.
  */
 export async function laadVerwachtingen({ forceer = false } = {}) {
@@ -305,16 +335,20 @@ export async function laadVerwachtingen({ forceer = false } = {}) {
 // Eén klein verzoek met neerslag per kwartier (Best Match). Dat verandert snel,
 // dus geen cache: de app vraagt het opnieuw als het ouder is dan een kwartier.
 
-export async function laadRegenNu() {
-  if (mockAan) return mockRegenNu();
+export function bouwRegenNuUrl(plek = LOCATION) {
   const p = new URLSearchParams({
-    latitude: String(LOCATION.latitude),
-    longitude: String(LOCATION.longitude),
-    timezone: LOCATION.timezone,
+    latitude: String(plek.latitude),
+    longitude: String(plek.longitude),
+    timezone: plek.timezone,
     minutely_15: 'precipitation',
     forecast_minutely_15: '12'
   });
-  const ruw = await haalOp(`${API_BASE}?${p.toString()}`);
+  return `${API_BASE}?${p.toString()}`;
+}
+
+export async function laadRegenNu() {
+  if (mockAan) return mockRegenNu();
+  const ruw = await haalOp(bouwRegenNuUrl());
   const m = ruw?.minutely_15 ?? {};
   return (m.time ?? []).map((tijd, i) => ({ tijd, mm: getal(m.precipitation, i) }));
 }
@@ -325,6 +359,45 @@ function mockRegenNu() {
   const eerste = Math.floor(nu / 900000) * 900000;
   const mm = [0, 0, 0, 0, 0.2, 0.5, 0.3, 0, 0, 0, 0, 0, 0];
   return mm.map((w, i) => ({ tijd: new Date(eerste + i * 900000).toISOString().slice(0, 16), mm: w }));
+}
+
+// --- plekken naast elkaar -----------------------------------------------------
+// Voor de lijst met bewaarde plekken: per plek alleen Best Match, drie dagen,
+// een paar getallen. Zo blijft een overzicht van acht plekken licht.
+
+export function bouwPlekWeerUrl(plek) {
+  const p = new URLSearchParams({
+    latitude: String(plek.latitude),
+    longitude: String(plek.longitude),
+    timezone: plek.timezone,
+    forecast_days: '3',
+    daily: 'weather_code,temperature_2m_max,precipitation_sum'
+  });
+  return `${API_BASE}?${p.toString()}`;
+}
+
+/** { 'JJJJ-MM-DD': { code, t, n } } voor een plek, in de tijdzone van die plek. */
+export async function laadPlekWeer(plek) {
+  if (mockAan) return mockPlekWeer(plek);
+  const d = (await haalOp(bouwPlekWeerUrl(plek)))?.daily ?? {};
+  return Object.fromEntries(
+    (d.time ?? []).map((datum, i) => [
+      datum,
+      { code: getal(d.weather_code, i), t: getal(d.temperature_2m_max, i), n: getal(d.precipitation_sum, i) }
+    ])
+  );
+}
+
+// In de mockmodus: vaste, per plek verschillende waarden.
+function mockPlekWeer(plek) {
+  const h = [...plek.naam].reduce((som, c) => som + c.charCodeAt(0), 0);
+  return Object.fromEntries(
+    [0, 1, 2].map((dag) => {
+      const datum = new Date(Date.parse(`${datumVoor('vandaag')}T12:00:00Z`) + dag * 86400000);
+      const nat = (h + dag) % 3 === 0;
+      return [datum.toISOString().slice(0, 10), { code: nat ? 61 : 2, t: 17 + ((h + dag * 3) % 8), n: nat ? 2.4 : 0 }];
+    })
+  );
 }
 
 // --- terugblik ------------------------------------------------------------
@@ -346,6 +419,19 @@ function naarDagen(ruw, verschil = 0) {
     if (datum < vandaag && t !== null && n !== null) dagen[datum] = { t, n };
   });
   return dagen;
+}
+
+export function bouwTerugblikUrl() {
+  const p = new URLSearchParams({
+    latitude: String(LOCATION.latitude),
+    longitude: String(LOCATION.longitude),
+    timezone: LOCATION.timezone,
+    past_days: String(UITSLAG_DAGEN),
+    forecast_days: '1',
+    daily: 'temperature_2m_max,precipitation_sum',
+    models: 'best_match'
+  });
+  return `${API_BASE}?${p.toString()}`;
 }
 
 function leesTerugblik() {
@@ -370,17 +456,8 @@ export async function laadTerugblik() {
   const vers = cache && Date.now() - new Date(cache.opgehaaldOp).getTime() < TERUGBLIK_TTL_MS;
   if (vers && cache.dagen[dagenTerug(1)]) return cache.dagen;
 
-  const p = new URLSearchParams({
-    latitude: String(LOCATION.latitude),
-    longitude: String(LOCATION.longitude),
-    timezone: LOCATION.timezone,
-    past_days: String(UITSLAG_DAGEN),
-    forecast_days: '1',
-    daily: 'temperature_2m_max,precipitation_sum',
-    models: 'best_match'
-  });
   try {
-    const dagen = naarDagen(await haalOp(`${API_BASE}?${p.toString()}`));
+    const dagen = naarDagen(await haalOp(bouwTerugblikUrl()));
     try {
       localStorage.setItem(
         TERUGBLIK_KEY,

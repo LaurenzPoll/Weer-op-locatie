@@ -9,7 +9,8 @@
 
 import { LOCATION, TARGET_DATE, VENSTER } from '../js/config.js';
 import { MODELLEN } from '../js/models.js';
-import { bouwUrl } from '../js/api.js';
+import { bouwPlekWeerUrl, bouwRegenNuUrl, bouwTerugblikUrl, bouwUrl } from '../js/api.js';
+import { bouwZoekUrl, naarPlekken } from '../js/plek.js';
 
 const kleur = process.stdout.isTTY
   ? { rood: '\x1b[31m', groen: '\x1b[32m', geel: '\x1b[33m', grijs: '\x1b[90m', uit: '\x1b[0m' }
@@ -17,7 +18,8 @@ const kleur = process.stdout.isTTY
 
 async function controleer(m) {
   const probeer = async (kern) => {
-    const res = await fetch(bouwUrl(m.id, { kern }));
+    // De volle 16 dagen: hier gaat het juist om hoe ver elk model reikt.
+    const res = await fetch(bouwUrl(m.id, { kern, dagen: 16 }));
     const json = await res.json();
     if (json.error) throw new Error(json.reason ?? `HTTP ${res.status}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -172,8 +174,82 @@ if (metUren.length) {
   console.log('');
 }
 
+// De andere verzoeken van de app, met precies dezelfde URL's: regen per
+// kwartier, plaatsen zoeken, het weer achter de bewaarde plekken en de
+// terugblik voor "Wie had gelijk?". Elk krijgt een korte controle op de vorm
+// van het antwoord, zodat een hernoemd veld hier opvalt en niet pas in de app.
+async function vraag(url) {
+  const res = await fetch(url);
+  const json = await res.json();
+  if (json.error) throw new Error(json.reason ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return json;
+}
+
+const getallen = (reeks) => (reeks ?? []).filter((v) => typeof v === 'number').length;
+const eis = (ok, melding) => {
+  if (!ok) throw new Error(melding);
+};
+const verzoeken = [
+  [
+    'regen per kwartier',
+    bouwRegenNuUrl(),
+    (j) => {
+      const m = j.minutely_15 ?? {};
+      eis((m.time ?? []).length >= 8, `maar ${(m.time ?? []).length} kwartieren`);
+      eis(getallen(m.precipitation) >= 8, 'geen neerslag per kwartier');
+      return `${m.time.length} kwartieren vanaf ${m.time[0]}`;
+    }
+  ],
+  [
+    'plaatsen zoeken',
+    bouwZoekUrl('Heerlen'),
+    (j) => {
+      const plekken = naarPlekken(j);
+      const heerlen = plekken.find((p) => p.naam === 'Heerlen');
+      eis(heerlen, 'Heerlen niet gevonden');
+      return `${plekken.length} plaatsen, Heerlen in ${heerlen.regio} (${heerlen.timezone})`;
+    }
+  ],
+  [
+    'plekkenoverzicht',
+    bouwPlekWeerUrl(LOCATION),
+    (j) => {
+      const d = j.daily ?? {};
+      eis((d.time ?? []).length === 3, `${(d.time ?? []).length} dagen in plaats van 3`);
+      eis(getallen(d.temperature_2m_max) >= 2 && getallen(d.weather_code) >= 2, 'waarden ontbreken');
+      return `${d.time[0]}: ${d.temperature_2m_max[0]} °C, ${d.precipitation_sum[0]} mm`;
+    }
+  ],
+  [
+    'terugblik',
+    bouwTerugblikUrl(),
+    (j) => {
+      const d = j.daily ?? {};
+      eis(getallen(d.temperature_2m_max) >= 5, 'te weinig voorbije dagen');
+      return `${d.time.length} dagen vanaf ${d.time[0]}`;
+    }
+  ]
+];
+
+console.log('Overige verzoeken van de app:');
+const misVerzoeken = [];
+for (const [naam, url, keur] of verzoeken) {
+  try {
+    console.log(`  ${naam.padEnd(20)} ${kleur.groen}${keur(await vraag(url))}${kleur.uit}`);
+  } catch (fout) {
+    misVerzoeken.push(naam);
+    console.log(`  ${naam.padEnd(20)} ${kleur.rood}${fout.message}${kleur.uit}`);
+  }
+  await new Promise((r) => setTimeout(r, 250));
+}
+console.log('');
+
 // Een onbekend model-id is een echte fout: dan klopt de catalogus niet meer.
 if (fouten.length) {
   console.error('Er zijn modellen die de API niet accepteert. Controleer de identifiers in js/models.js.');
-  process.exit(1);
 }
+if (misVerzoeken.length) {
+  console.error(`Deze verzoeken van de app werken niet zoals verwacht: ${misVerzoeken.join(', ')}.`);
+}
+if (fouten.length || misVerzoeken.length) process.exit(1);

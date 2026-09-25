@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { beoordeel, beoordeelDag, kiesVerwachting, ranglijst } from '../js/uitslag.js';
+import { beoordeel, beoordeelDag, besteModellen, kiesVerwachting, ranglijst, verwachtingVan } from '../js/uitslag.js';
 
 const punt = (ts, datum, modellen) => ({ ts, datum, modellen });
 
@@ -70,4 +70,34 @@ test('de ranglijst middelt over dagen, beste eerst', () => {
   assert.equal(stand[0].id, 'a');
   assert.equal(stand[0].raak, 2);
   assert.equal(stand[1].raak, 0);
+});
+
+test('de beste van de week: alleen modellen met genoeg beoordeelde dagen', () => {
+  const stand = [
+    { id: 'nieuw', dagen: 2, gemFout: 0.1 },
+    { id: 'a', dagen: 6, gemFout: 0.5 },
+    { id: 'b', dagen: 5, gemFout: 0.9 },
+    { id: 'c', dagen: 4, gemFout: 1.2 },
+    { id: 'd', dagen: 7, gemFout: 2 }
+  ];
+  assert.deepEqual(
+    besteModellen(stand).map((s) => s.id),
+    ['a', 'b', 'c']
+  );
+});
+
+test('wat de beste modellen zeggen, alleen als ze een verwachting hebben', () => {
+  const resultaten = [
+    { id: 'a', status: 'ok', dag: { tempMax: 22.4, neerslag: 0 } },
+    { id: 'b', status: 'ok', dag: { tempMax: 23.1, neerslag: 2 } },
+    { id: 'c', status: 'buiten_bereik' }
+  ];
+  assert.deepEqual(verwachtingVan(resultaten, ['a', 'b', 'c']), {
+    ids: ['a', 'b'],
+    laag: 22.4,
+    hoog: 23.1,
+    nat: 1,
+    aantal: 2
+  });
+  assert.equal(verwachtingVan(resultaten, ['c']), null);
 });
