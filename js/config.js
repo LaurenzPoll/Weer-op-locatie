@@ -68,8 +68,9 @@ function beginPlek() {
 // pagina opnieuw te laden, dus binnen een bezoek verandert deze niet.
 export const LOCATION = { ...beginPlek() };
 
-// Het dagvenster waar het om gaat: tussen deze uren wil je weten of het droog
-// blijft. Beide grenzen zijn inclusief, dus 11 tot en met 20 uur.
+// Het deel van de dag waar het om gaat: tussen deze uren wil je weten of het
+// droog blijft. Is het na VENSTER.tot, dan opent de app op morgen. (Het
+// uurrooster zelf loopt vanaf nu 24 uur vooruit; zie uren.js.)
 export const VENSTER = { van: 11, tot: 20 };
 
 // De app gaat altijd over vandaag of morgen, gerekend in de tijdzone van de

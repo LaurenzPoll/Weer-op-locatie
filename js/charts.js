@@ -266,56 +266,62 @@ export function trendLijn(punten, { breedte = 132, hoogte = 34 } = {}) {
 }
 
 /**
- * Rooster van modellen tegen uren: elke rij een model, elke kolom een uur uit
- * het dagvenster. Dit is de vorm die de vraag "blijft het tussen elf en acht
- * droog" in één blik beantwoordt — een lijn per model zou bij twintig modellen
- * een kluwen worden.
+ * Rooster van modellen tegen uren: elke rij een model, elke kolom een uur. Dit
+ * is de vorm die de vraag "blijft het de komende uren droog" in één blik
+ * beantwoordt — een lijn per model zou bij twintig modellen een kluwen worden.
+ *
+ * De kolommen komen uit uren.js: op vandaag het uur van nu vooraan en dan 24
+ * uur vooruit, op morgen de hele dag. Ze hebben een vaste breedte; wat niet
+ * past, veeg je opzij, terwijl de modelnamen blijven staan. Het uur van nu
+ * krijgt een kader (dat app.js over de kolom legt), en waar een nieuwe dag
+ * begint staat de dag in de kop.
  *
  * De meting bepaalt hoe een cel eruitziet: een kleurvlak uit één verloop van
  * licht naar donker, of een weericoontje. Nul is nooit de lichtste kleur maar
- * leegte, want droog moet als niets lezen.
- *
- * Het dagtotaal van een model staat onder zijn naam in plaats van in een eigen
- * kolom. Die kolom kostte op een telefoon precies de ruimte die de avonduren
- * nodig hebben: nu passen alle uren van het venster naast elkaar.
+ * leegte, want droog moet als niets lezen. Het totaal van een model over deze
+ * uren staat onder zijn naam.
  */
-/**
- * nuUur: op vandaag het uur waarin we nu zitten. Dat uur krijgt een markering
- * in de kop, en de uren ervoor worden gedimd: daar valt niets meer te plannen.
- */
-export function uurRooster({ rijen, uren, meting, nuUur = null }) {
+export function uurRooster({ rijen, kolommen, meting }) {
   if (!rijen.length) {
-    return `<p class="leeg">Nog geen model met uurwaarden voor deze dag. Zodra de eerste modellen de datum halen,
-      vult dit rooster zich.</p>`;
+    return `<p class="leeg">Nog geen model met uurwaarden voor deze uren. Zodra de modellen zo ver reiken, vult dit
+      rooster zich.</p>`;
   }
 
-  const voorbij = (uur) => nuUur !== null && uur < nuUur;
-  const klas = (uur, ...namen) => {
-    const alle = [...namen, voorbij(uur) ? 'is-voorbij' : ''].filter(Boolean);
+  const hh = (k) => String(k.uur).padStart(2, '0');
+  // Voor de uren van een andere dag dan de eerste staat de dag erbij, ook in de tip.
+  const eersteDatum = kolommen[0].datum;
+  const tijdVan = (k) => `${k.datum !== eersteDatum ? `${k.dagKort} ` : ''}${hh(k)}:00`;
+  const klas = (k, ...namen) => {
+    const alle = [...namen, k.nu ? 'is-nu' : '', k.nieuweDag ? 'is-nieuwe-dag' : ''].filter(Boolean);
     return alle.length ? ` class="${alle.join(' ')}"` : '';
   };
 
-  const cel = (waarde, model, uur) => {
-    const tijd = `${String(uur).padStart(2, '0')}:00`;
+  const cel = (waarde, model, k) => {
+    const tijd = tijdVan(k);
     if (waarde === null || waarde === undefined) {
-      return `<td${klas(uur, 'cel-geen')} title="${esc(`${model} · ${tijd} — geen waarde`)}">
+      return `<td${klas(k, 'cel-geen')} title="${esc(`${model} · ${tijd} — geen waarde`)}">
         <span class="enkel-lezer">geen waarde</span></td>`;
     }
-    const c = meting.cel(waarde);
+    const c = meting.cel(waarde, k);
     const tekst = `${model} · ${tijd} — ${c.omschrijving}`;
     const gedeeld = `data-tip="${esc(tekst)}" title="${esc(tekst)}"`;
     const verborgen = `<span class="enkel-lezer">${esc(c.omschrijving)}</span>`;
-    if (c.soort === 'leeg') return `<td${klas(uur, 'cel-nul')} ${gedeeld}>${verborgen}</td>`;
-    if (c.soort === 'icoon') return `<td${klas(uur, 'cel-icoon')} ${gedeeld}>${icoon(c.icoon)}${verborgen}</td>`;
-    return `<td${klas(uur)} data-stap="${c.stap}" ${gedeeld}>${verborgen}</td>`;
+    if (c.soort === 'nacht') return `<td${klas(k, 'cel-nacht')} ${gedeeld}>${verborgen}</td>`;
+    if (c.soort === 'leeg') return `<td${klas(k, 'cel-nul')} ${gedeeld}>${verborgen}</td>`;
+    if (c.soort === 'icoon') return `<td${klas(k, 'cel-icoon')} ${gedeeld}>${icoon(c.icoon)}${verborgen}</td>`;
+    return `<td${klas(k)} data-stap="${c.stap}" ${gedeeld}>${verborgen}</td>`;
   };
 
-  const koppen = uren
-    .map((u) =>
-      u === nuUur
-        ? `<th scope="col" class="is-nu"><span class="enkel-lezer">nu, </span>${String(u).padStart(2, '0')}</th>`
-        : `<th scope="col"${klas(u)}>${String(u).padStart(2, '0')}</th>`
-    )
+  // Twee regels in de kop: boven "nu" of de dag waar een nieuwe dag begint (en
+  // op morgen boven het eerste uur), onder het uur.
+  const koppen = kolommen
+    .map((k, i) => {
+      const boven = k.nu ? 'nu' : k.nieuweDag || i === 0 ? k.dagKort : '';
+      const voorlezer = k.nu ? `nu, ${hh(k)} uur` : `${k.nieuweDag || i === 0 ? `${k.dagKort} ` : ''}${hh(k)} uur`;
+      return `<th scope="col"${klas(k)} aria-label="${esc(voorlezer)}"><span class="rooster-dag" aria-hidden="true">${
+        boven || '&nbsp;'
+      }</span><span aria-hidden="true">${hh(k)}</span></th>`;
+    })
     .join('');
 
   const lijven = rijen
@@ -324,7 +330,7 @@ export function uurRooster({ rijen, uren, meting, nuUur = null }) {
       <th scope="row"><a href="#model-${esc(r.id)}" title="${esc(`${r.naam} — naar de kaart van dit model`)}">${esc(
         r.kort ?? r.naam
       )}</a><span class="rooster-som">${esc(meting.samenvattingFormatter(r.samenvatting))}</span></th>
-      ${uren.map((u) => cel(r.waarden[u] ?? null, r.naam, u)).join('')}
+      ${kolommen.map((k) => cel(r.waarden[k.sleutel] ?? null, r.naam, k)).join('')}
     </tr>`
     )
     .join('');
@@ -332,8 +338,8 @@ export function uurRooster({ rijen, uren, meting, nuUur = null }) {
   const voet = meting.voet
     ? `<tfoot><tr>
         <th scope="row">${esc(meting.voet.label)}</th>
-        ${uren
-          .map((u) => `<td${klas(u, 'rooster-voet')}>${esc(meting.voet.formatter(meting.voet.waarden[u]))}</td>`)
+        ${kolommen
+          .map((k) => `<td${klas(k, 'rooster-voet')}>${esc(meting.voet.formatter(meting.voet.waarden[k.sleutel]))}</td>`)
           .join('')}
       </tr></tfoot>`
     : '';
@@ -343,7 +349,12 @@ export function uurRooster({ rijen, uren, meting, nuUur = null }) {
     l.soort === 'iconen'
       ? `<div class="rooster-legenda">
           ${l.items
-            .map((i) => `<span class="legenda-item">${icoon(i.icoon)} ${esc(i.label)}</span>`)
+            .map(
+              (i) =>
+                `<span class="legenda-item">${
+                  i.nacht ? '<span class="legenda-nacht" aria-hidden="true"></span>' : icoon(i.icoon)
+                } ${esc(i.label)}</span>`
+            )
             .join('')}
         </div>`
       : `<div class="rooster-legenda">
@@ -360,7 +371,8 @@ export function uurRooster({ rijen, uren, meting, nuUur = null }) {
   // scherm omlaag. Hij staat er nog steeds, maar ingeklapt onder de legenda.
   return `
   <div class="rooster-omhulsel">
-    <table class="rooster" data-ramp="${esc(meting.ramp ?? 'blauw')}">
+    ${kolommen.some((k) => k.nu) ? '<div class="rooster-nu-kader" aria-hidden="true"></div>' : ''}
+    <table class="rooster" data-ramp="${esc(meting.ramp ?? 'blauw')}" style="--kolommen: ${kolommen.length}">
       <caption class="enkel-lezer">${esc(meting.tabelUitleg)}</caption>
       <thead>
         <tr>

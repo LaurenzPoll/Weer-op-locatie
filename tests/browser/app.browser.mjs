@@ -154,18 +154,78 @@ test('delen zet het oordeel met een link naar dezelfde dag en plek op het klembo
   }
 });
 
-test('op vandaag markeert het rooster het huidige uur', async () => {
-  const { context, page } = await telefoon();
+test('het uurrooster: nu vooraan met een kader, 24 uur vooruit, opzij te vegen, gelijk voor alle metingen', async () => {
+  const { context, page, fouten } = await telefoon();
   try {
     // Vrijdag 14:20 in Amsterdam.
     await page.clock.install({ time: new Date('2026-09-25T12:20:00Z') });
     await page.goto(`${server.url}?mock=1&dag=vandaag`);
     await wachtOpKaart(page);
-    await page.waitForSelector('.rooster thead th.is-nu');
-    assert.match(await page.textContent('.rooster thead th.is-nu'), /14$/);
-    assert.equal(await page.locator('.rooster thead th.is-voorbij').count(), 3);
+    await page.waitForSelector('.rooster-nu-kader');
+
+    const meet = () =>
+      page.evaluate(() => {
+        const omhulsel = document.querySelector('.rooster-omhulsel');
+        const koppen = [...document.querySelectorAll('.rooster thead th')];
+        const nu = document.querySelector('.rooster thead th.is-nu').getBoundingClientRect();
+        const kader = document.querySelector('.rooster-nu-kader').getBoundingClientRect();
+        const naam = document.querySelector('.rooster tbody th').getBoundingClientRect();
+        return {
+          uren: koppen.slice(1).map((t) => t.textContent.trim()),
+          eersteIsNu: koppen[1].classList.contains('is-nu'),
+          kaderPast: Math.abs(kader.left - nu.left) < 1.5 && Math.abs(kader.width - nu.width) < 1.5,
+          kaderHoog: kader.height > 300,
+          scrolt: omhulsel.scrollWidth > omhulsel.clientWidth + 100,
+          scrollLeft: omhulsel.scrollLeft,
+          naamLinks: naam.left - omhulsel.getBoundingClientRect().left,
+          nacht: document.querySelectorAll('td.cel-nacht').length
+        };
+      });
+
+    const regen = await meet();
+    assert.equal(regen.uren.length, 25);
+    assert.deepEqual([regen.uren[0], regen.uren[10], regen.uren[24]], ['nu14', 'za00', '14']);
+    assert.ok(regen.eersteIsNu, 'het uur van nu staat vooraan');
+    assert.ok(regen.kaderPast && regen.kaderHoog, 'het kader ligt om de hele kolom van nu');
+    assert.ok(regen.scrolt, 'niet alle uren passen: opzij te vegen');
+    assert.equal(regen.nacht, 0, 'nachtvakjes alleen bij zon');
+
+    // Opzij vegen: de modelnamen blijven staan.
+    await page.locator('.rooster-omhulsel').evaluate((o) => (o.scrollLeft = 250));
+    await page.waitForTimeout(300);
+    const gescrold = await meet();
+    assert.ok(gescrold.scrollLeft > 150);
+    assert.ok(Math.abs(gescrold.naamLinks - regen.naamLinks) < 1.5, 'de namen schuiven niet mee');
+
+    // Zon en temperatuur: dezelfde uren, hetzelfde kader, en je blijft op je plek.
+    for (const meting of ['zon', 'temp']) {
+      await page.click(`#rooster-knoppen [data-meting="${meting}"]`);
+      await page.waitForTimeout(200);
+      const m = await meet();
+      assert.deepEqual(m.uren, regen.uren, `${meting}: dezelfde uren`);
+      assert.ok(m.eersteIsNu && m.kaderPast && m.kaderHoog, `${meting}: hetzelfde kader`);
+      assert.ok(Math.abs(m.scrollLeft - gescrold.scrollLeft) < 2, `${meting}: zelfde plek in de uren`);
+      if (meting === 'zon') assert.ok(m.nacht > 100, 'zon: nachturen als nacht, niet als bewolkt');
+    }
+
+    // Morgen: de hele dag, zonder kader, weer vooraan.
+    await page.click('#dag-knoppen [data-dag="morgen"]');
+    await page.waitForFunction(() =>
+      document.querySelector('.rooster thead th:nth-child(2)')?.textContent.includes('00')
+    );
+    const morgen = await page.evaluate(() => ({
+      uren: [...document.querySelectorAll('.rooster thead th')].slice(1).map((t) => t.textContent.trim()),
+      kader: document.querySelectorAll('.rooster-nu-kader').length,
+      scrollLeft: document.querySelector('.rooster-omhulsel').scrollLeft
+    }));
+    assert.equal(morgen.uren.length, 24);
+    assert.equal(morgen.uren[0], 'za00');
+    assert.deepEqual([morgen.kader, morgen.scrollLeft], [0, 0]);
+
+    await page.click('#dag-knoppen [data-dag="vandaag"]');
     await page.waitForSelector('#lucht-nu:not([hidden])');
     assert.match(await page.textContent('#lucht-nu'), /Droog tot|droog|regen/i);
+    assert.deepEqual(fouten, []);
   } finally {
     await context.close();
   }

@@ -4,16 +4,14 @@
 import {
   CACHE_TTL_MS,
   DAG,
-  ONVOLLEDIG_TTL_MS,
   DAGKEUZES,
   LOCATION,
+  ONVOLLEDIG_TTL_MS,
   TARGET_DATE,
-  VENSTER,
   dagenTerug,
   datumVoor,
   kiesDag,
-  tijdOpLocatie,
-  uurNu
+  tijdOpLocatie
 } from './config.js';
 import { GROEPEN, MODELLEN, kortNaam } from './models.js';
 import { laadMockHistorie, laadRegenNu, laadTerugblik, laadVerwachtingen, oudeVerwachtingen } from './api.js';
@@ -35,6 +33,7 @@ import { NAT_MM, RAAK_GRADEN, beoordeel, besteModellen, ranglijst, verwachtingVa
 import { zonOpOnder } from './zon.js';
 import { regenKomend } from './nu.js';
 import { plekParameters, zetPlekkenOp } from './plek.js';
+import { uurKolommen } from './uren.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
 const el = (id) => document.getElementById(id);
@@ -754,13 +753,12 @@ function tabelHtml(resultaten) {
 
 // --------------------------------------------------------------- uurrooster
 
-// Het uur waarop het rooster voor het laatst de nu-markering kreeg.
-let roosterUur = null;
+// Het eerste uur van het rooster bij de laatste keer tekenen; schuift de klok
+// een uur op, dan tekenen we opnieuw.
+let roosterStart = null;
+// Over welke uren het rooster gaat, in woorden: "in de komende 24 uur" of "morgen".
+let periode = 'in de komende 24 uur';
 
-const VENSTER_UREN = [];
-for (let u = VENSTER.van; u <= VENSTER.tot; u++) VENSTER_UREN.push(u);
-
-const venTekst = `${String(VENSTER.van).padStart(2, '0')}:00 en ${String(VENSTER.tot).padStart(2, '0')}:00`;
 const som = (lijst) => lijst.reduce((a, b) => a + b, 0);
 
 // De drie manieren om naar het venster te kijken. Per meting: waar de waarde
@@ -809,7 +807,7 @@ const METINGEN = {
     voetLabel: 'modellen met regen',
     voetWaarde: (perUur) => perUur.filter((v) => v >= 0.1).length,
     voetFormatter: (v) => (v === null ? '' : String(v)),
-    tabelUitleg: `Neerslag per uur per model tussen ${venTekst}. Elke cel bevat de waarde in millimeter.`,
+    tabelUitleg: () => `Neerslag per uur per model ${periode}. Elke cel bevat de waarde in millimeter.`,
     legenda: {
       soort: 'balk',
       laag: 'een spat',
@@ -828,12 +826,12 @@ const METINGEN = {
       const nat = totalen.filter((v) => v >= 0.5).length;
       const natste = rijen.reduce((a, b) => (a.samenvatting >= b.samenvatting ? a : b));
       if (!nat) {
-        return `Alle ${rijen.length} modellen houden het tussen ${venTekst} vrijwel droog.`;
+        return `Alle ${rijen.length} modellen houden het ${periode} vrijwel droog.`;
       }
       const med = mediaan(totalen);
       const medTekst = med < 0.5 ? `de meerderheid blijft droog` : `de mediaan komt op ${esc(f.mm(med))}`;
       return `<strong>${nat} van de ${rijen.length} modellen</strong> ${nat === 1 ? 'geeft' : 'geven'} meer dan
-        0,5 mm tussen ${venTekst} — ${medTekst}, en het natste model geeft ${esc(f.mm(natste.samenvatting))}
+        0,5 mm ${periode} — ${medTekst}, en het natste model geeft ${esc(f.mm(natste.samenvatting))}
         (${esc(natste.naam)}).`;
     }
   },
@@ -841,7 +839,9 @@ const METINGEN = {
     label: 'Zon',
     sleutel: 'zon',
     formatter: (v) => `${Math.round(v)} min`,
-    cel: (v) => {
+    // 's Nachts schijnt de zon niet, en dat is geen bewolking: die uren blijven leeg.
+    cel: (v, kolom) => {
+      if (kolom?.nacht) return { soort: 'nacht', omschrijving: 'nacht, de zon is onder' };
       const s = ZON_SCHAAL.find((x) => v >= x.vanaf);
       return { soort: 'icoon', icoon: s.icoon, omschrijving: `${Math.round(v)} min zon — ${s.naam}` };
     },
@@ -851,13 +851,15 @@ const METINGEN = {
     voetLabel: 'mediaan (minuten)',
     voetWaarde: (perUur) => (perUur.length ? mediaan(perUur) : null),
     voetFormatter: (v) => (v === null ? '' : `${Math.round(v)}`),
-    tabelUitleg: `Zonneschijn in minuten per uur per model tussen ${venTekst}.`,
+    nachtLeeg: true,
+    tabelUitleg: () => `Zonneschijn in minuten per uur per model ${periode}.`,
     legenda: {
       soort: 'iconen',
       items: [
         { icoon: 'zon', label: 'zonnig — 40 minuten of meer zon in dat uur' },
         { icoon: 'halfzon', label: 'halfbewolkt — 10 tot 40 minuten' },
-        { icoon: 'wolk', label: 'bewolkt — minder dan 10 minuten' }
+        { icoon: 'wolk', label: 'bewolkt — minder dan 10 minuten' },
+        { nacht: true, label: 'nacht — de zon is onder' }
       ],
       uitlegKop: 'Wat betekent 40 minuten zon?',
       uitleg: `Een uur duurt 60 minuten, dus "40 minuten zon" betekent dat de zon twee derde van dat uur vrij stond.`
@@ -865,7 +867,7 @@ const METINGEN = {
     kop: (rijen) => {
       const totalen = rijen.map((r) => r.samenvatting / 60);
       const meest = rijen.reduce((a, b) => (a.samenvatting >= b.samenvatting ? a : b));
-      return `Mediaan <strong>${esc(f.uren(mediaan(totalen)))} zon</strong> tussen ${venTekst} —
+      return `Mediaan <strong>${esc(f.uren(mediaan(totalen)))} zon</strong> ${periode} —
         van ${esc(f.uren(Math.min(...totalen)))} tot ${esc(f.uren(Math.max(...totalen)))}
         (zonnigst: ${esc(meest.naam)}).`;
     }
@@ -896,18 +898,18 @@ const METINGEN = {
     // rooster, en de vakjes en tips geven de precieze waarde al. `|| 0` voorkomt
     // een "-0" bij een mediaan net onder nul.
     voetFormatter: (v) => (v === null ? '' : String(Math.round(v) || 0)),
-    tabelUitleg: `Temperatuur per uur per model tussen ${venTekst}, in graden Celsius.`,
+    tabelUitleg: () => `Temperatuur per uur per model ${periode}, in graden Celsius.`,
     legenda: {
       soort: 'balk',
       laag: 'koeler',
       hoog: 'warmer',
       uitlegKop: 'Hoe loopt de kleurschaal?',
-      uitleg: `Het verloop is niet vast maar past zich aan deze dag aan: het lichtste geel is de koelste waarde die
-        een model in dit venster geeft, het donkerste de warmste.`
+      uitleg: `Het verloop is niet vast maar past zich aan deze uren aan: het lichtste geel is de koelste waarde die
+        een model hier geeft, het donkerste de warmste.`
     },
     kop: (rijen) => {
       const toppen = rijen.map((r) => r.samenvatting);
-      return `Mediane hoogste temperatuur tussen ${venTekst}: <strong>${esc(f.temp(mediaan(toppen)))}</strong> —
+      return `Mediane hoogste temperatuur ${periode}: <strong>${esc(f.temp(mediaan(toppen)))}</strong> —
         de modellen lopen van ${esc(f.temp(Math.min(...toppen)))} tot ${esc(f.temp(Math.max(...toppen)))}.`;
     }
   }
@@ -922,23 +924,28 @@ try {
   // Zonder opslag begint hij simpelweg elke keer bij regen.
 }
 
-function bouwRooster(resultaten, metingSleutel) {
+function bouwRooster(resultaten, perDag, kolommen, metingSleutel) {
   const meting = METINGEN[metingSleutel];
   const rijen = [];
   const overgeslagen = [];
-  const perUur = Object.fromEntries(VENSTER_UREN.map((u) => [u, []]));
+  const perUur = Object.fromEntries(kolommen.map((k) => [k.sleutel, []]));
+  // Per dag en per model de uurwaarden, zodat een kolom van morgen zijn waarde
+  // uit de verwachting voor morgen haalt.
+  const urenVan = (datum, id) =>
+    (perDag?.[datum] ?? (datum === TARGET_DATE ? resultaten : [])).find((r) => r.id === id)?.uren;
 
   for (const r of resultaten) {
-    if (r.status !== 'ok' || !r.uren?.length) continue;
+    const heeftUren = kolommen.some((k) => urenVan(k.datum, r.id)?.length);
+    if (!heeftUren || r.status === 'fout' || r.status === 'geen_dekking') continue;
     const waarden = {};
     let aantalGevuld = 0;
-    for (const uur of VENSTER_UREN) {
-      const treffer = r.uren.find((x) => x.uur === uur);
+    for (const k of kolommen) {
+      const treffer = urenVan(k.datum, r.id)?.find((x) => x.uur === k.uur);
       const waarde = treffer ? (treffer[meting.sleutel] ?? null) : null;
-      waarden[uur] = waarde;
+      waarden[k.sleutel] = waarde;
       if (waarde !== null) {
         aantalGevuld++;
-        perUur[uur].push(waarde);
+        perUur[k.sleutel].push(waarde);
       }
     }
     if (!aantalGevuld) {
@@ -966,21 +973,57 @@ function bouwRooster(resultaten, metingSleutel) {
     // Metingen met een vaste schaal brengen hun eigen cel-functie mee; die met
     // een meeschalend verloop krijgen hem hier, als het domein bekend is.
     cel: meting.cel ?? meting.maakCel(domein),
+    tabelUitleg: meting.tabelUitleg(),
     legenda:
       meting.ramp === 'geel' && domein
         ? { ...meting.legenda, laag: `koeler — ${f.temp(domein[0])}`, hoog: `warmer — ${f.temp(domein[1])}` }
         : meting.legenda,
     voet: {
       label: meting.voetLabel,
-      waarden: Object.fromEntries(VENSTER_UREN.map((u) => [u, meting.voetWaarde(perUur[u])])),
+      waarden: Object.fromEntries(
+        kolommen.map((k) => [k.sleutel, meting.nachtLeeg && k.nacht ? null : meting.voetWaarde(perUur[k.sleutel])])
+      ),
       formatter: meting.voetFormatter
     }
   };
   return { rijen, meting: uitgebreid, overgeslagen };
 }
 
+// Het kader om de kolom van nu: één rechthoek van de kop tot de voet, die
+// meeschuift met het rooster en onder de vaste modelnamen door gaat.
+function plaatsNuKader() {
+  const omhulsel = el('rooster-inhoud').querySelector('.rooster-omhulsel');
+  const kader = omhulsel?.querySelector('.rooster-nu-kader');
+  const kop = omhulsel?.querySelector('thead th.is-nu');
+  const tabel = omhulsel?.querySelector('table');
+  if (!kader || !kop || !tabel) return;
+  const o = omhulsel.getBoundingClientRect();
+  const k = kop.getBoundingClientRect();
+  const t = tabel.getBoundingClientRect();
+  // Binnen de kolom zelf: de voeg links ervan hoort bij de vaste namen, die hem
+  // afdekken zodat de uren er netjes onder door schuiven.
+  kader.style.left = `${k.left - o.left + omhulsel.scrollLeft}px`;
+  kader.style.top = `${k.top - o.top - 1}px`;
+  kader.style.width = `${k.width}px`;
+  kader.style.height = `${t.bottom - k.top + 1}px`;
+}
+
+// Aan het eind van de uren verdwijnt de vervaging rechts, die zegt dat er meer is.
+function zetRandOp(omhulsel) {
+  const bijwerken = () =>
+    omhulsel.classList.toggle('is-einde', omhulsel.scrollLeft + omhulsel.clientWidth >= omhulsel.scrollWidth - 4);
+  omhulsel.addEventListener('scroll', bijwerken, { passive: true });
+  bijwerken();
+}
+
+let roosterMaat = null;
+let roosterDag = null;
+
 function renderRooster(resultaten) {
-  const { rijen, meting, overgeslagen } = bouwRooster(resultaten, huidigeMeting);
+  const kolommen = uurKolommen(DAG);
+  periode = DAG === 'morgen' ? 'morgen' : 'in de komende 24 uur';
+  const perDag = laatsteRender?.meta?.perDag;
+  const { rijen, meting, overgeslagen } = bouwRooster(resultaten, perDag, kolommen, huidigeMeting);
   const basis = METINGEN[huidigeMeting];
 
   const knoppen = el('rooster-knoppen');
@@ -989,10 +1032,11 @@ function renderRooster(resultaten) {
     .querySelectorAll('button')
     .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.meting === huidigeMeting)));
 
+  roosterStart = DAG === 'morgen' ? null : kolommen[0].sleutel;
   if (!rijen.length) {
     el('rooster-kop').textContent = '';
     el('rooster-inhoud').innerHTML = `<p class="leeg">Geen model levert ${basis.label.toLowerCase()} per uur voor deze
-      dag. Zodra de modellen dichter bij de datum komen, vult dit rooster zich.</p>`;
+      uren. Zodra de modellen zo ver reiken, vult dit rooster zich.</p>`;
     return;
   }
 
@@ -1004,8 +1048,25 @@ function renderRooster(resultaten) {
         overgeslagen.length === 1 ? 'staat' : 'staan'
       } daarom niet in dit rooster.</p>`
     : '';
-  roosterUur = TARGET_DATE === datumVoor('vandaag') ? uurNu() : null;
-  el('rooster-inhoud').innerHTML = uurRooster({ rijen, uren: VENSTER_UREN, meting, nuUur: roosterUur }) + noot;
+
+  // Wisselen tussen regen, zon en temperatuur houdt je plek in de uren vast;
+  // een andere dag begint weer vooraan.
+  const vorige = el('rooster-inhoud').querySelector('.rooster-omhulsel');
+  const scroll = vorige && roosterDag === DAG ? vorige.scrollLeft : 0;
+  roosterDag = DAG;
+  el('rooster-inhoud').innerHTML = uurRooster({ rijen, kolommen, meting }) + noot;
+
+  const omhulsel = el('rooster-inhoud').querySelector('.rooster-omhulsel');
+  omhulsel.scrollLeft = scroll;
+  zetRandOp(omhulsel);
+  plaatsNuKader();
+  // Verandert de maat van het rooster (draaien, letters die laat binnenkomen),
+  // dan schuift het kader mee.
+  roosterMaat?.disconnect();
+  if ('ResizeObserver' in window) {
+    roosterMaat = new ResizeObserver(plaatsNuKader);
+    roosterMaat.observe(omhulsel.querySelector('table'));
+  }
 }
 
 // -------------------------------------------------------------------- tekenen
@@ -1127,14 +1188,20 @@ async function laad({ forceer = false } = {}) {
   // te zien terwijl de 22 modellen antwoorden dan een lege kaart.
   const oud = !forceer && getoondVoor !== TARGET_DATE ? oudeVerwachtingen() : null;
   if (oud && !oud.vers) {
-    render(oud.resultaten, { opgehaaldOp: oud.opgehaaldOp, uitCache: true, bijwerken: true, historie: leesHistorie() });
+    render(oud.resultaten, {
+      opgehaaldOp: oud.opgehaaldOp,
+      uitCache: true,
+      bijwerken: true,
+      perDag: oud.perDag,
+      historie: leesHistorie()
+    });
   }
   try {
     // Moeten er modellen opnieuw geprobeerd worden, dan staat wat er al is
     // alvast op het scherm.
-    const bijTussenstand = (tussen, opnieuw) => {
+    const bijTussenstand = (tussen, opnieuw, tussenPerDag) => {
       if (beurt !== laadBeurt) return;
-      render(tussen, { opgehaaldOp: new Date().toISOString(), opnieuw, historie: leesHistorie() });
+      render(tussen, { opgehaaldOp: new Date().toISOString(), opnieuw, perDag: tussenPerDag, historie: leesHistorie() });
     };
     const { resultaten, perDag, opgehaaldOp, uitCache, offline, onvolledig } = await laadVerwachtingen({
       forceer,
@@ -1144,7 +1211,7 @@ async function laad({ forceer = false } = {}) {
     // dag je ook bekijkt.
     if (!uitCache) Object.entries(perDag).forEach(([datum, res]) => bewaarMeting(res, datum));
     if (beurt !== laadBeurt) return;
-    render(resultaten, { opgehaaldOp, uitCache, offline, onvolledig, historie: leesHistorie() });
+    render(resultaten, { opgehaaldOp, uitCache, offline, onvolledig, perDag, historie: leesHistorie() });
     // Na een verse ophaal kan er een nieuwe voorbije dag te beoordelen zijn.
     if (forceer || !uitslagGeladen) laadUitslag();
   } catch (fout) {
@@ -1476,7 +1543,7 @@ function start() {
     if (document.visibilityState !== 'visible') return;
     if (datumVoor(DAG) !== TARGET_DATE) wisselDag(DAG);
     else if (gegevensVerouderd()) laad();
-    else if (roosterUur !== null && uurNu() !== roosterUur) renderRooster(laatsteResultaten);
+    else if (roosterStart !== null && tijdOpLocatie().slice(0, 13) !== roosterStart) renderRooster(laatsteResultaten);
     if (TARGET_DATE === datumVoor('vandaag')) ververRegenNu();
     toonRegenNu();
   };
