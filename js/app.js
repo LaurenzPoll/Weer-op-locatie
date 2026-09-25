@@ -67,7 +67,7 @@ function vulKop() {
   knoppen
     .querySelectorAll('button')
     .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dag === DAG)));
-  document.title = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam} — Weer op locatie`;
+  document.title = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam} — Weer`;
 }
 
 function zetStatus(tekst, isFout = false) {

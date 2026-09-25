@@ -5,8 +5,9 @@
 //
 // Een gewoon weericoon, getekend zoals de pagina zelf: de blauwe lucht van de
 // bovenste kaart met gloed rond de zon, het zonnetje en de wolk uit iconen.js.
-// De kleine twist: elke regendruppel heeft een eigen kleur, zoals elk model zijn
-// eigen bui voorspelt. Er staat geen plaatsnaam in, dus het past bij elke plek.
+// De kleine twist: de drie regendruppels zijn de drie modelgroepen, in precies
+// de kleuren en met het witte randje van de stippen bij "Spreiding" (globaal,
+// regionaal, referentie). Er staat geen plaatsnaam in, dus het past bij elke plek.
 // De tekening staat hieronder één keer beschreven en wordt zowel als PNG
 // gerasterd als als SVG geschreven.
 
@@ -18,7 +19,6 @@ import { writeFileSync } from 'node:fs';
 
 const WIT = [0xff, 0xff, 0xff];
 const ZON = [0xff, 0xd3, 0x5c]; // --zon op de lucht
-const RAND = [0x0a, 0x14, 0x28]; // een dun donker randje, zodat de druppels loskomen van de lucht
 
 // De lucht bij 'zon': een verloop onder 168°, met een warme gloed rond de zon.
 const LUCHT_A = [0x15, 0x4f, 0xae];
@@ -30,12 +30,12 @@ const ZON_MIDDEN = { x: 36, y: 30, r: 14 };
 // De wolk uit iconen.js (een vak van 24), vergroot en naar rechtsonder.
 const WOLK = { x: 3, y: -1, schaal: 3.9 };
 
-// Drie druppels, elk in zijn eigen kleur en op zijn eigen hoogte: regen zoals
-// op de pagina, en de oranje en groene van de andere modelgroepen.
+// Drie druppels in de seriekleuren uit styles.css (--serie-1 tot en met -3),
+// in de volgorde van de legenda, elk op zijn eigen hoogte.
 const DRUPPELS = [
-  { x: 38, y: 74, kleur: [0xb5, 0xd7, 0xff] },
-  { x: 52, y: 79, kleur: [0xf0, 0x8a, 0x5d] },
-  { x: 66, y: 74, kleur: [0x3c, 0xcf, 0x6a] }
+  { x: 38, y: 74, kleur: [0x2a, 0x78, 0xd6] },
+  { x: 52, y: 79, kleur: [0xeb, 0x68, 0x34] },
+  { x: 66, y: 74, kleur: [0x1b, 0xaf, 0x7a] }
 ];
 const DRUPPEL = { hoog: 8.2, r: 4.4 };
 
@@ -116,7 +116,8 @@ function tekening() {
       verf: effen(WIT)
     },
     ...DRUPPELS.flatMap((d) => [
-      { vorm: 'pad', d: druppelPad(d.x, d.y, 0.5), verf: effen(RAND, 0.25) },
+      // Het witte randje, zoals om de stippen in de spreidingsgrafiek.
+      { vorm: 'pad', d: druppelPad(d.x, d.y, 1), verf: effen(WIT) },
       { vorm: 'pad', d: druppelPad(d.x, d.y), verf: effen(d.kleur) }
     ])
   ];

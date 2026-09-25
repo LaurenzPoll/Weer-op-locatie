@@ -108,7 +108,7 @@ Dezelfde controle loopt als GitHub Action — handmatig te starten via *Actions 
 
 ## Iconen
 
-Het icoon is een gewoon weericoon, getekend zoals de pagina: de blauwe lucht van de bovenste kaart, het zonnetje en de wolk uit de app. De twist: elke regendruppel heeft een eigen kleur, zoals elk model zijn eigen bui voorspelt. Er staat geen plaatsnaam in, dus het past bij elke plek. De iconen worden gegenereerd, niet met de hand getekend:
+Op het beginscherm heet de app **Weer**. Het icoon is een gewoon weericoon, getekend zoals de pagina: de blauwe lucht van de bovenste kaart, het zonnetje en de wolk uit de app. De twist: de drie regendruppels zijn de drie modelgroepen, in dezelfde kleuren en met hetzelfde witte randje als de stippen bij *Spreiding* (blauw globaal, oranje regionaal, groen referentie). Er staat geen plaatsnaam in, dus het past bij elke plek. De iconen worden gegenereerd, niet met de hand getekend:
 
 ```bash
 node scripts/maak-iconen.mjs
