@@ -53,9 +53,7 @@ const BIJZONDER = {
   dmi_harmonie_arome_europe: { dagen: 3 },
   meteofrance_arpege_europe: { dagen: 4 },
   meteofrance_arome_france_hd: { dagen: 1 }, // haalt morgen nog niet
-  chmi_aladin_central_europe_2km: { dagen: 3 },
-  kma_gdps: { leeg: true }, // geen dekking op deze plek
-  bom_access_global: { fout: 'Cannot initialize WeatherVariableDaily from invalid String value' }
+  chmi_aladin_central_europe_2km: { dagen: 3 }
 };
 
 // Een deel van de modellen houdt de dag droog. De rest zet een bui ergens in de
@@ -168,7 +166,10 @@ for (const m of MODELLEN) {
     push('temperature_2m_max', Number(t.toFixed(1)));
     push('temperature_2m_min', Number(tMin.toFixed(1)));
     push('precipitation_sum', Number(n.toFixed(1)));
-    push('precipitation_hours', uur ? uur.regen.filter((v) => v >= 0.1).length : Math.round(n > 0.2 ? 1 + rnd() * 5 : 0));
+    push(
+      'precipitation_hours',
+      uur ? uur.regen.filter((v) => v >= 0.1).length : Math.round(n > 0.2 ? 1 + rnd() * 5 : 0)
+    );
     push('precipitation_probability_max', Math.round(Math.min(95, n * 12 + rnd() * 25)));
     push('wind_speed_10m_max', Number((14 + rnd() * 16).toFixed(1)));
     push('wind_gusts_10m_max', Number((26 + rnd() * 22).toFixed(1)));
@@ -191,8 +192,8 @@ for (const m of MODELLEN) {
 // Een week terug: wat er werkelijk gebeurde (de terugblik, zoals Open-Meteo die
 // met past_days teruggeeft) en wat elk model er vooraf van verwachtte. Elk model
 // heeft een eigen karakter — de een is structureel te warm, de ander ziet vaker
-// regen — zodat de stand ergens over gaat. KMA en ACCESS ontbreken, net als in
-// het echt; Best Match staat erin om te zien dat hij buiten mededinging blijft.
+// regen — zodat de stand ergens over gaat. Best Match staat erin om te zien dat
+// hij buiten mededinging blijft.
 const KARAKTER = {
   ecmwf_ifs025: [0.2, 0.7, 1.0],
   ecmwf_ifs: [0.1, 0.6, 1.0],

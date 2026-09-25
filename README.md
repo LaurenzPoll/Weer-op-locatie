@@ -85,7 +85,7 @@ node dev/maak-fixture.mjs          # eenmalig, schrijft dev/fixture.json
 # open http://localhost:8000/?mock=1
 ```
 
-De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. Hij bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft; "reikt niet zo ver" zie je op morgen. Er zit ook een week aan verwachtingen en terugblik in, zodat "Wie had gelijk?" meteen iets te tonen heeft; die week komt alleen uit de fixture en belandt nooit in de echte historie. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
+De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. "Reikt niet zo ver" zie je op morgen; een model zonder dekking of met een fout komt in de browsertests aan bod. Er zit ook een week aan verwachtingen en terugblik in, zodat "Wie had gelijk?" meteen iets te tonen heeft; die week komt alleen uit de fixture en belandt nooit in de echte historie. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
 
 ## Tests
 
@@ -140,7 +140,7 @@ De app is een statische site en staat op GitHub Pages. Instellen: *Settings → 
 
 ## Bronnen en licentie
 
-Weerdata van [Open-Meteo](https://open-meteo.com/), gebruikt onder [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). De modellen komen van ECMWF, KNMI, DWD, NOAA/NCEP, Météo-France, UK Met Office, DMI, CHMI, CMC, JMA, KMA, CMA en BOM.
+Weerdata van [Open-Meteo](https://open-meteo.com/), gebruikt onder [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). De modellen komen van ECMWF, KNMI, DWD, NOAA/NCEP, Météo-France, UK Met Office, DMI, CHMI, CMC, JMA en CMA.
 
 De lettertypes Big Shoulders Display en Silkscreen staan in [`fonts/`](fonts/) en vallen onder de SIL Open Font License; de licentieteksten staan ernaast.
 

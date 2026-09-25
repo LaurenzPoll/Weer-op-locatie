@@ -107,7 +107,7 @@ test('een tijdelijke fout wordt opnieuw geprobeerd, met de tussenstand erbij', a
 
 test('een vaste fout wordt niet herhaald; wie blijft haperen maakt de ophaal onvolledig', async () => {
   const echt = globalThis.fetch;
-  const pogingen = nepApi({ jma_gsm: ['onbekend'], kma_gdps: ['netwerk'] });
+  const pogingen = nepApi({ jma_gsm: ['onbekend'], cma_grapes_global: ['netwerk'] });
   try {
     const { resultaten, onvolledig } = await haalAlles();
     // Vaste fout: één poging met alles en één met de kernvariabelen, dan klaar.
@@ -115,9 +115,9 @@ test('een vaste fout wordt niet herhaald; wie blijft haperen maakt de ophaal onv
     const jma = resultaten.find((r) => r.id === 'jma_gsm');
     assert.deepEqual([jma.status, jma.tijdelijk], ['fout', false]);
     // Tijdelijke fout: drie pogingen, en dan telt de ophaal als onvolledig.
-    assert.equal(pogingen.kma_gdps, 3);
-    const kma = resultaten.find((r) => r.id === 'kma_gdps');
-    assert.deepEqual([kma.status, kma.tijdelijk], ['fout', true]);
+    assert.equal(pogingen.cma_grapes_global, 3);
+    const grapes = resultaten.find((r) => r.id === 'cma_grapes_global');
+    assert.deepEqual([grapes.status, grapes.tijdelijk], ['fout', true]);
     assert.equal(onvolledig, true);
   } finally {
     globalThis.fetch = echt;

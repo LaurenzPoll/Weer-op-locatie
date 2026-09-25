@@ -176,7 +176,7 @@ function consensusHtml(sam, resultaten) {
 
   const dekking =
     `${sam.bruikbaar} van de ${sam.totaal} modellen ${sam.bruikbaar === 1 ? 'heeft' : 'hebben'} een verwachting` +
-    (sam.buitenBereik ? ` · ${sam.buitenBereik} reiken nog niet zo ver` : '') +
+    (sam.buitenBereik ? ` · ${sam.buitenBereik} ${sam.buitenBereik === 1 ? 'reikt' : 'reiken'} nog niet zo ver` : '') +
     (sam.geenDekking ? ` · ${sam.geenDekking} zonder dekking hier` : '') +
     (sam.fout ? ` · ${sam.fout} niet op te halen` : '');
 

@@ -208,6 +208,8 @@ test('tegen de API: zes tegelijk, drie dagen, en een traag model komt bij de her
     hourly: { ...e.hourly, time: schuif(e.hourly.time) }
   });
   const TRAAG = 'jma_gsm';
+  // Dit model kent een gevraagde variabele niet: een vaste fout, elke keer.
+  const VAST = 'cma_grapes_global';
   const dagenGevraagd = new Set();
   const pogingen = {};
   let tegelijk = 0;
@@ -229,6 +231,7 @@ test('tegen de API: zes tegelijk, drie dagen, en een traag model komt bij de her
       dagenGevraagd.add(q.get('forecast_days'));
       pogingen[model] = (pogingen[model] ?? 0) + 1;
       if (model === TRAAG && pogingen[model] === 1) return; // de eerste keer nooit een antwoord
+      if (model === VAST) return json({ error: true, reason: 'Cannot initialize WeatherVariableDaily' }, 400);
       tegelijk++;
       hoogste = Math.max(hoogste, tegelijk);
       await new Promise((klaar) => setTimeout(klaar, 250));
@@ -254,7 +257,8 @@ test('tegen de API: zes tegelijk, drie dagen, en een traag model komt bij de her
     assert.ok(hoogste <= 6, `nooit meer dan zes tegelijk (${hoogste})`);
     assert.deepEqual([...dagenGevraagd], ['3'], 'drie dagen per model');
     // Een model met een vaste fout wordt niet herhaald.
-    assert.equal(pogingen.bom_access_global, 2, 'één keer alles, één keer de kernvariabelen');
+    assert.equal(pogingen[VAST], 2, 'één keer alles, één keer de kernvariabelen');
+    assert.match(await page.locator(`#model-${VAST}`).innerText(), /mislukt/);
   } finally {
     await context.close();
   }
