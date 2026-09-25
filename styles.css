@@ -718,6 +718,63 @@ main {
 .oordeel-serious .oordeel-icoon {
   background: #ffa47f;
 }
+/* Regen in het komende uur en de zon: korte regels onder de cijfers. */
+.lucht-regels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.lucht-regels p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.lucht-zon {
+  font-variant-numeric: tabular-nums;
+}
+.lucht-zon > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lucht-zon > span + span {
+  margin-left: 6px;
+}
+.lucht-klein {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lucht-klein .zonvlak {
+  fill: var(--zon);
+  stroke: none;
+}
+.lucht-klein .vol {
+  fill: var(--regen);
+  stroke: none;
+}
+.lucht-nu {
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+}
+.lucht-nu strong {
+  color: #fff;
+}
+.lucht-nu[hidden] {
+  display: none;
+}
+
 .lucht-dekking {
   margin: 12px 0 0;
   font-size: 12px;
@@ -1308,6 +1365,18 @@ svg.trend {
 }
 .rooster tbody td[data-tip] {
   cursor: pointer;
+}
+/* Vandaag: het uur waarin we nu zitten krijgt een markering in de kop, en de
+   uren ervoor gaan naar de achtergrond. */
+.rooster thead th.is-nu {
+  color: var(--surface-1);
+  font-weight: 700;
+  background: var(--accent);
+  border-radius: 6px;
+  padding-block: 1px;
+}
+.rooster .is-voorbij {
+  opacity: 0.4;
 }
 .rooster tbody td:hover {
   outline: 2px solid var(--text-1);
@@ -2240,7 +2309,64 @@ body:has(.versie-melding:not([hidden])) .voet {
   [data-modus='8bit'] .oordeel {
     grid-area: oordeel;
   }
-  [data-modus='8bit'] .lucht-dekking {
+  [data-modus='8bit'] /* Regen in het komende uur en de zon: korte regels onder de cijfers. */
+.lucht-regels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.lucht-regels p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.lucht-zon {
+  font-variant-numeric: tabular-nums;
+}
+.lucht-zon > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lucht-zon > span + span {
+  margin-left: 6px;
+}
+.lucht-klein {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lucht-klein .zonvlak {
+  fill: var(--zon);
+  stroke: none;
+}
+.lucht-klein .vol {
+  fill: var(--regen);
+  stroke: none;
+}
+.lucht-nu {
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+}
+.lucht-nu strong {
+  color: #fff;
+}
+.lucht-nu[hidden] {
+  display: none;
+}
+
+.lucht-dekking {
     grid-area: dekking;
   }
   [data-modus='8bit'] .kop-plaats {

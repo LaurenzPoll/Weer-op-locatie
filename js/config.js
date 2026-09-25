@@ -32,6 +32,23 @@ export function datumVoor(keuze, nu = new Date()) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Datum en tijd als 'JJJJ-MM-DDTHH:MM' op de klok van de locatie, zoals Open-Meteo ze geeft. */
+export function tijdOpLocatie(nu = new Date()) {
+  const datum = opLocatie(nu, { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const klok = new Intl.DateTimeFormat('en-GB', {
+    timeZone: LOCATION.timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).format(nu);
+  return `${datum}T${klok}`;
+}
+
+/** Het uur (0–23) op dit moment, in de tijdzone van de locatie. */
+export function uurNu(nu = new Date()) {
+  return Number(opLocatie(nu, { hour: 'numeric', hourCycle: 'h23' }));
+}
+
 function beginKeuze() {
   if (typeof location !== 'undefined') {
     const gevraagd = new URLSearchParams(location.search).get('dag');
@@ -39,8 +56,7 @@ function beginKeuze() {
   }
   // Is het dagvenster van vandaag al voorbij, dan valt er over vandaag niets
   // meer te plannen en beginnen we bij morgen.
-  const uur = Number(opLocatie(new Date(), { hour: 'numeric', hourCycle: 'h23' }));
-  return uur > VENSTER.tot ? 'morgen' : 'vandaag';
+  return uurNu() > VENSTER.tot ? 'morgen' : 'vandaag';
 }
 
 // De gekozen dag. Andere modules lezen DAG en TARGET_DATE rechtstreeks; wijzig

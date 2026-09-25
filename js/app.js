@@ -1,9 +1,21 @@
 // Opbouw van de pagina. Haalt de verwachtingen op, rekent de spreiding uit en
 // zet alles op het scherm.
 
-import { DAG, DAGKEUZES, LOCATION, TARGET_DATE, VENSTER, dagenTerug, datumVoor, kiesDag } from './config.js';
+import {
+  CACHE_TTL_MS,
+  DAG,
+  DAGKEUZES,
+  LOCATION,
+  TARGET_DATE,
+  VENSTER,
+  dagenTerug,
+  datumVoor,
+  kiesDag,
+  tijdOpLocatie,
+  uurNu
+} from './config.js';
 import { GROEPEN, MODELLEN, kortNaam } from './models.js';
-import { laadMockHistorie, laadTerugblik, laadVerwachtingen } from './api.js';
+import { laadMockHistorie, laadRegenNu, laadTerugblik, laadVerwachtingen } from './api.js';
 import { mediaan, samenvatting } from './stats.js';
 import { puntenWolk, trendLijn, uurGrafiek, uurRooster } from './charts.js';
 import * as f from './format.js';
@@ -19,6 +31,8 @@ import {
   verschuiving
 } from './history.js';
 import { NAT_MM, RAAK_GRADEN, beoordeel, ranglijst } from './uitslag.js';
+import { zonOpOnder } from './zon.js';
+import { regenKomend } from './nu.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
 const el = (id) => document.getElementById(id);
@@ -122,6 +136,24 @@ function koorHtml(v) {
     </div>`;
 }
 
+// Zonsopkomst en -ondergang hangen niet van een model af; die rekenen we uit.
+const ZON_OP = `<svg class="lucht-klein" viewBox="0 0 24 24" aria-hidden="true">
+  <path class="zonvlak" d="M6.5 17a5.5 5.5 0 0 1 11 0z"/><path d="M3 20h18M12 3v6M9 6l3-3 3 3"/></svg>`;
+const ZON_ONDER = `<svg class="lucht-klein" viewBox="0 0 24 24" aria-hidden="true">
+  <path class="zonvlak" d="M6.5 17a5.5 5.5 0 0 1 11 0z"/><path d="M3 20h18M12 3v6M9 6l3 3 3-3"/></svg>`;
+
+function zonHtml() {
+  const z = zonOpOnder(TARGET_DATE, LOCATION.latitude, LOCATION.longitude);
+  const dag = DAG === 'morgen' ? 'morgen' : 'vandaag';
+  if (z.poolnacht) return `<p class="lucht-zon">De zon komt ${dag} niet op</p>`;
+  if (z.middernachtzon) return `<p class="lucht-zon">De zon gaat ${dag} niet onder</p>`;
+  const tz = LOCATION.timezone;
+  return `<p class="lucht-zon">
+      <span>${ZON_OP}<span class="enkel-lezer">Zon op om </span>${esc(f.klok(z.op, tz))}</span>
+      <span>${ZON_ONDER}<span class="enkel-lezer">Zon onder om </span>${esc(f.klok(z.onder, tz))}</span>
+    </p>`;
+}
+
 function consensusHtml(sam, resultaten) {
   if (!sam.oordeel) {
     return `
@@ -163,6 +195,10 @@ function consensusHtml(sam, resultaten) {
       <div><dt>Wind</dt><dd>${esc(f.kmh(sam.wind?.mediaan))}</dd>
         <dd class="bij">${sam.wind ? `tot ${esc(f.kmh(sam.wind.max))}` : ''}</dd></div>
     </dl>
+    <div class="lucht-regels">
+      <p class="lucht-nu" id="lucht-nu" hidden></p>
+      ${zonHtml()}
+    </div>
     <div class="oordeel oordeel-${sam.oordeel.status}">
       <span class="oordeel-icoon" aria-hidden="true">${sam.oordeel.icoon}</span>
       <p><strong>${esc(sam.oordeel.tekst)}</strong> ${esc(sam.oordeel.reden)}.</p>
@@ -623,6 +659,9 @@ function tabelHtml(resultaten) {
 
 // --------------------------------------------------------------- uurrooster
 
+// Het uur waarop het rooster voor het laatst de nu-markering kreeg.
+let roosterUur = null;
+
 const VENSTER_UREN = [];
 for (let u = VENSTER.van; u <= VENSTER.tot; u++) VENSTER_UREN.push(u);
 
@@ -870,7 +909,8 @@ function renderRooster(resultaten) {
         overgeslagen.length === 1 ? 'staat' : 'staan'
       } daarom niet in dit rooster.</p>`
     : '';
-  el('rooster-inhoud').innerHTML = uurRooster({ rijen, uren: VENSTER_UREN, meting }) + noot;
+  roosterUur = TARGET_DATE === datumVoor('vandaag') ? uurNu() : null;
+  el('rooster-inhoud').innerHTML = uurRooster({ rijen, uren: VENSTER_UREN, meting, nuUur: roosterUur }) + noot;
 }
 
 // -------------------------------------------------------------------- tekenen
@@ -894,6 +934,7 @@ function render(resultaten, meta) {
   const lucht = el('consensus');
   lucht.dataset.lucht = sam.oordeel ? meesteWeerbeeld(resultaten).naam : 'leeg';
   el('consensus-inhoud').innerHTML = consensusHtml(sam, resultaten);
+  toonRegenNu();
   const legenda = legendaHtml(resultaten);
   el('legenda').innerHTML = legenda.merken;
   el('legenda-uitleg').textContent = legenda.uitleg;
@@ -917,12 +958,57 @@ function render(resultaten, meta) {
   zetStatus(delen.join(' · '));
 }
 
+// ------------------------------------------------------ regen komend uur
+// Alleen voor vandaag: een zin als "Droog tot 16:15" bovenin de kaart. Een
+// kwartier oud is oud genoeg om opnieuw te vragen.
+
+let regenNu = null;
+let regenNuLaden = null;
+
+function toonRegenNu() {
+  const p = el('lucht-nu');
+  if (!p) return;
+  const komend = TARGET_DATE === datumVoor('vandaag') && regenNu ? regenKomend(regenNu.kwartieren, tijdOpLocatie()) : null;
+  p.hidden = !komend;
+  if (!komend) return;
+  // Een volle druppel als het nu regent, een lege als het (nog) droog is.
+  const druppel = `<svg class="lucht-klein" viewBox="0 0 24 24" aria-hidden="true"><path${
+    komend.nat ? ' class="vol"' : ''
+  } d="M12 3.5c3.2 4.2 5.5 7.4 5.5 10.2a5.5 5.5 0 0 1-11 0c0-2.8 2.3-6 5.5-10.2z"/></svg>`;
+  p.innerHTML = `${druppel}<span><strong>${esc(komend.kop)}</strong>${komend.rest ? ` ${esc(komend.rest)}` : ''}</span>`;
+}
+
+function ververRegenNu() {
+  if (regenNuLaden) return regenNuLaden;
+  if (regenNu && Date.now() - regenNu.opgehaaldOp < 15 * 60 * 1000) return Promise.resolve();
+  regenNuLaden = laadRegenNu()
+    .then((kwartieren) => {
+      regenNu = { kwartieren, opgehaaldOp: Date.now() };
+    })
+    .catch(() => {
+      // Geen verbinding: dan zeggen we liever niets dan iets ouds.
+      regenNu = null;
+    })
+    .finally(() => {
+      regenNuLaden = null;
+      toonRegenNu();
+    });
+  return regenNuLaden;
+}
+
+function gegevensVerouderd() {
+  const opgehaald = laatsteRender?.meta?.opgehaaldOp;
+  return !!opgehaald && Date.now() - new Date(opgehaald).getTime() >= CACHE_TTL_MS;
+}
+
 async function laad({ forceer = false } = {}) {
   const beurt = ++laadBeurt;
   const knop = el('verversen');
   knop.disabled = true;
   knop.classList.add('draait');
   zetStatus('verwachtingen ophalen…');
+  if (forceer) regenNu = null;
+  if (TARGET_DATE === datumVoor('vandaag')) ververRegenNu();
   try {
     const { resultaten, perDag, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
     // Een verse ophaal bevat vandaag én morgen; beide gaan de trend in, welke
@@ -1247,11 +1333,19 @@ function start() {
     wisselDag(knop.dataset.dag);
   });
 
-  // Staat de pagina over middernacht open, dan schuift 'vandaag' mee zodra je
-  // er weer naar kijkt.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && datumVoor(DAG) !== TARGET_DATE) wisselDag(DAG);
-  });
+  // Een app op het beginscherm gaat verder waar hij was als je hem terughaalt.
+  // Is 'vandaag' intussen een andere dag, of zijn de gegevens ouder dan een
+  // half uur, dan halen we ze opnieuw op; ook als hij al die tijd openstaat.
+  const bijwerken = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (datumVoor(DAG) !== TARGET_DATE) wisselDag(DAG);
+    else if (gegevensVerouderd()) laad();
+    else if (roosterUur !== null && uurNu() !== roosterUur) renderRooster(laatsteResultaten);
+    if (TARGET_DATE === datumVoor('vandaag')) ververRegenNu();
+    toonRegenNu();
+  };
+  document.addEventListener('visibilitychange', bijwerken);
+  setInterval(bijwerken, 5 * 60 * 1000);
 
   laad();
   zetVersieOp();
