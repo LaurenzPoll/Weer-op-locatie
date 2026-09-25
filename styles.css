@@ -786,6 +786,26 @@ main {
   fill: var(--regen);
   stroke: none;
 }
+.lucht-beste {
+  flex-basis: 100%;
+  line-height: 1.35;
+}
+.lucht-medaille svg,
+.beste-merk svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+.lucht-medaille {
+  flex: none;
+}
+.beste-merk {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-left: 6px;
+}
+
 .lucht-nu {
   padding: 6px 12px 6px 8px;
   border-radius: 999px;
@@ -2597,6 +2617,26 @@ body:has(.versie-melding:not([hidden])) .voet {
   fill: var(--regen);
   stroke: none;
 }
+.lucht-beste {
+  flex-basis: 100%;
+  line-height: 1.35;
+}
+.lucht-medaille svg,
+.beste-merk svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+}
+.lucht-medaille {
+  flex: none;
+}
+.beste-merk {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-left: 6px;
+}
+
 .lucht-nu {
   padding: 6px 12px 6px 8px;
   border-radius: 999px;

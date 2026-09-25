@@ -30,7 +30,7 @@ import {
   trendPunten,
   verschuiving
 } from './history.js';
-import { NAT_MM, RAAK_GRADEN, beoordeel, ranglijst } from './uitslag.js';
+import { NAT_MM, RAAK_GRADEN, beoordeel, besteModellen, ranglijst, verwachtingVan } from './uitslag.js';
 import { zonOpOnder } from './zon.js';
 import { regenKomend } from './nu.js';
 import { plekParameters, zetPlekkenOp } from './plek.js';
@@ -204,6 +204,7 @@ function consensusHtml(sam, resultaten) {
     <div class="lucht-regels">
       <p class="lucht-nu" id="lucht-nu" hidden></p>
       ${zonHtml()}
+      ${besteHtml(resultaten)}
     </div>
     <div class="oordeel oordeel-${sam.oordeel.status}">
       <span class="oordeel-icoon" aria-hidden="true">${sam.oordeel.icoon}</span>
@@ -466,12 +467,15 @@ const UITSLAG_NOOT = `<p class="uitslag-klein">De maatstaf is Open-Meteo’s eig
   dezelfde modellen, geen regenmeter. Daarom doet Best Match niet mee. Alles blijft op dit apparaat.</p>`;
 
 let uitslagGeladen = false;
+// De modellen die het hier deze week het best deden (zie uitslag.js).
+let beste = [];
 
 async function laadUitslag() {
   let html;
   try {
     const [terugblik, mockHistorie] = await Promise.all([laadTerugblik(), laadMockHistorie()]);
     const dagen = beoordeel(mockHistorie ?? leesVerleden(), terugblik);
+    beste = besteModellen(ranglijst(dagen));
     html = dagen.length
       ? podiumHtml(dagen[0]) + (dagen.length > 1 ? standHtml(dagen) : '') + UITSLAG_NOOT
       : `<div class="paneel"><p class="leeg">Morgen staat hier wie er vandaag het dichtst bij zat. De app bewaart
@@ -486,6 +490,37 @@ async function laadUitslag() {
   el('uitslag-inhoud').innerHTML = html;
   el('uitslag').hidden = false;
   uitslagGeladen = true;
+  // De kaart en de lijst tonen wie er deze week het best deed.
+  if (beste.length && laatsteRender) render(laatsteRender.resultaten, laatsteRender.meta);
+}
+
+// Eén regel in de bovenste kaart: wat zeggen de modellen die het hier deze
+// week het best deden? De mediaan erboven blijft die van alle modellen.
+function besteHtml(resultaten) {
+  if (beste.length < 2) return '';
+  const v = verwachtingVan(
+    resultaten,
+    beste.map((b) => b.id)
+  );
+  if (!v || v.aantal < 2) return '';
+  const namen = v.ids.map((id) => kortNaam(id));
+  const lijst = `${namen.slice(0, -1).join(', ')} en ${namen.at(-1)}`;
+  const temp =
+    Math.round(v.laag * 2) === Math.round(v.hoog * 2)
+      ? `${f.graden(v.laag)}°`
+      : `${f.graden(v.laag)} tot ${f.graden(v.hoog)}°`;
+  const regen = v.nat === 0 ? 'droog' : v.nat === v.aantal ? 'nat' : `${v.nat} van ${v.aantal} nat`;
+  return `<p class="lucht-beste"><span class="lucht-medaille" aria-hidden="true">${pixelSvg(MEDAILLES[1])}</span>
+      <span><strong>Beste deze week</strong> (${esc(lijst)}): ${esc(temp)}, ${esc(regen)}</span></p>`;
+}
+
+// Een medaille achter de naam in de lijst, voor de beste drie van de week.
+function besteMerk(id) {
+  const plek = beste.findIndex((b) => b.id === id);
+  if (plek === -1) return '';
+  return `<span class="beste-merk" title="${plek + 1}e deze week bij Wie had gelijk?">${pixelSvg(
+    MEDAILLES[plek + 1]
+  )}<span class="enkel-lezer">, ${plek + 1}e deze week</span></span>`;
 }
 
 // --------------------------------------------------------------------- kaarten
@@ -604,7 +639,7 @@ function kaartHtml(r, historie, grafiekBreedte) {
         : `<span class="vlag" aria-hidden="true">${m.vlag}</span>`
     }
     <span class="model-titel">
-      <span class="model-naam">${esc(m.naam).replace(/(\d) (km)\b/g, '$1&nbsp;$2')}</span>
+      <span class="model-naam">${esc(m.naam).replace(/(\d) (km)\b/g, '$1&nbsp;$2')}${besteMerk(r.id)}</span>
       ${rijSubHtml(r, m, s)}
     </span>
     ${rijWaardeHtml(r)}
