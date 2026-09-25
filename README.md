@@ -84,6 +84,16 @@ node dev/maak-fixture.mjs          # eenmalig, schrijft dev/fixture.json
 
 De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. Hij bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft; "reikt niet zo ver" zie je op morgen. Er zit ook een week aan verwachtingen en terugblik in, zodat "Wie had gelijk?" meteen iets te tonen heeft; die week komt alleen uit de fixture en belandt nooit in de echte historie. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
 
+## Tests
+
+De rekenkern heeft tests: het oordeel en de spreiding, "Wie had gelijk?", het normaliseren van de antwoorden, zonsopkomst en -ondergang, de zin over regen in het komende uur, de datums in de tijdzone van de plek, en of de service worker elk bestand van de app kent. Ze gebruiken alleen wat Node (22 of nieuwer) aan boord heeft:
+
+```bash
+node --test tests/*.test.mjs
+```
+
+Ze draaien ook als GitHub Action bij elke push en elk pull request.
+
 ## De modelcatalogus controleren
 
 Open-Meteo voegt modellen toe en hernoemt ze af en toe. Dit script houdt de catalogus tegen de echte API aan en meldt welke modellen niet meer bestaan, welke hier geen dekking hebben en waar de opgegeven horizon afwijkt van de werkelijkheid:

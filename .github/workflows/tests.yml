@@ -1,0 +1,19 @@
+name: Tests
+
+# De rekenkern (oordeel, "Wie had gelijk?", zon, regen komend uur) en de
+# bestandenlijst van de service worker, bij elke push en elk pull request.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Tests draaien
+        run: node --test tests/*.test.mjs
