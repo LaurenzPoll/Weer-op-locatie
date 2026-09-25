@@ -4,6 +4,8 @@
 // de cache, de trend en "Wie had gelijk?" — bij die ene plek hoort.
 
 import {
+  CACHE_TTL_MS,
+  DAG,
   LOCATION,
   PLEK_SLEUTEL,
   PLEKKEN_SLEUTEL,
@@ -12,6 +14,8 @@ import {
   isPlek,
   zelfdePlek
 } from './config.js';
+import { laadPlekWeer } from './api.js';
+import { icoon, icoonVoorCode } from './iconen.js';
 
 const GEOCODING = 'https://geocoding-api.open-meteo.com/v1/search';
 const MAX_BEWAARD = 8;
@@ -149,6 +153,61 @@ function mijnLocatie() {
   });
 }
 
+// ----------------------------------------------------- plekken naast elkaar
+// Achter elke bewaarde plek het weer van de dag die je bekijkt, volgens Best
+// Match. Een half uur bewaard, zodat het blad bij opnieuw openen meteen vol staat.
+
+const plekWeer = new Map();
+const plekSleutel = (p) => `${p.latitude.toFixed(3)},${p.longitude.toFixed(3)}`;
+
+/** Vandaag of morgen (JJJJ-MM-DD) op de klok van een plek. */
+export function datumOp(plek, keuze = DAG, nu = new Date()) {
+  const vandaag = new Intl.DateTimeFormat('en-CA', {
+    timeZone: plek.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(nu);
+  if (keuze !== 'morgen') return vandaag;
+  return new Date(Date.parse(`${vandaag}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+}
+
+function weerVoor(plek) {
+  const sleutel = plekSleutel(plek);
+  const bewaard = plekWeer.get(sleutel);
+  if (bewaard && Date.now() - bewaard.op < CACHE_TTL_MS) return bewaard.belofte;
+  const belofte = laadPlekWeer(plek).catch(() => {
+    plekWeer.delete(sleutel);
+    return null;
+  });
+  plekWeer.set(sleutel, { op: Date.now(), belofte });
+  return belofte;
+}
+
+/** "22°, droog" voor in de lijst, of niets als er (nog) geen gegevens zijn. */
+export function plekWeerHtml(dag) {
+  if (!dag || dag.t === null || dag.t === undefined) return '';
+  const regen =
+    dag.n === null || dag.n === undefined
+      ? ''
+      : dag.n < 0.1
+        ? 'droog'
+        : `${String(Math.round(dag.n * 10) / 10).replace('.', ',')} mm`;
+  return `${dag.code === null || dag.code === undefined ? '' : icoon(icoonVoorCode(dag.code))}
+    <span class="plek-cijfers"><span class="plek-temp">${Math.round(dag.t)}°</span>${
+      regen ? `<span class="plek-mm">${regen}</span>` : ''
+    }</span>`;
+}
+
+function vulWeer(lijstEl, plekken) {
+  plekken.forEach((plek, i) => {
+    weerVoor(plek).then((dagen) => {
+      const vak = lijstEl.querySelector(`.plek-weer[data-i="${i}"]`);
+      if (vak) vak.innerHTML = plekWeerHtml(dagen?.[datumOp(plek)]);
+    });
+  });
+}
+
 // ---------------------------------------------------------------------- blad
 
 function plekKnop(plek, i, { huidig = false, bron }) {
@@ -157,6 +216,7 @@ function plekKnop(plek, i, { huidig = false, bron }) {
         <span class="plek-naam">${esc(plek.naam)}</span>
         ${plek.regio ? `<span class="plek-regio">${esc(plek.regio)}</span>` : ''}
       </button>
+      ${bron === 'bewaard' ? `<span class="plek-weer" data-i="${i}"></span>` : ''}
       ${
         huidig
           ? '<span class="plek-vink" aria-label="huidige plek">✓</span>'
@@ -188,6 +248,8 @@ export function zetPlekkenOp() {
     el('plek-bewaard').innerHTML = bewaard
       .map((p, i) => plekKnop(p, i, { huidig: zelfdePlek(p, LOCATION), bron: 'bewaard' }))
       .join('');
+    el('plek-bewaard-kop').textContent = `Bewaard · ${DAG === 'morgen' ? 'morgen' : 'vandaag'} volgens Best Match`;
+    vulWeer(el('plek-bewaard'), bewaard);
   };
 
   el('plek-knop').addEventListener('click', () => {

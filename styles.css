@@ -2110,7 +2110,9 @@ svg.trend {
   color: var(--text-2);
   cursor: pointer;
 }
-.blad svg {
+.blad-sluit svg,
+.zoekveld svg,
+.plek-hier svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -2190,6 +2192,36 @@ svg.trend {
 }
 .plek-regio {
   font-size: 13px;
+  color: var(--muted);
+}
+/* Het weer achter een bewaarde plek: icoon, temperatuur, droog of mm. */
+.plek-weer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.plek-weer:empty {
+  display: none;
+}
+.plek-weer .ic {
+  width: 26px;
+  height: 26px;
+}
+.plek-cijfers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+.plek-temp {
+  font-size: 17px;
+  font-weight: 650;
+}
+.plek-mm {
+  font-size: 12px;
   color: var(--muted);
 }
 .plek-vink {

@@ -361,6 +361,45 @@ function mockRegenNu() {
   return mm.map((w, i) => ({ tijd: new Date(eerste + i * 900000).toISOString().slice(0, 16), mm: w }));
 }
 
+// --- plekken naast elkaar -----------------------------------------------------
+// Voor de lijst met bewaarde plekken: per plek alleen Best Match, drie dagen,
+// een paar getallen. Zo blijft een overzicht van acht plekken licht.
+
+export function bouwPlekWeerUrl(plek) {
+  const p = new URLSearchParams({
+    latitude: String(plek.latitude),
+    longitude: String(plek.longitude),
+    timezone: plek.timezone,
+    forecast_days: '3',
+    daily: 'weather_code,temperature_2m_max,precipitation_sum'
+  });
+  return `${API_BASE}?${p.toString()}`;
+}
+
+/** { 'JJJJ-MM-DD': { code, t, n } } voor een plek, in de tijdzone van die plek. */
+export async function laadPlekWeer(plek) {
+  if (mockAan) return mockPlekWeer(plek);
+  const d = (await haalOp(bouwPlekWeerUrl(plek)))?.daily ?? {};
+  return Object.fromEntries(
+    (d.time ?? []).map((datum, i) => [
+      datum,
+      { code: getal(d.weather_code, i), t: getal(d.temperature_2m_max, i), n: getal(d.precipitation_sum, i) }
+    ])
+  );
+}
+
+// In de mockmodus: vaste, per plek verschillende waarden.
+function mockPlekWeer(plek) {
+  const h = [...plek.naam].reduce((som, c) => som + c.charCodeAt(0), 0);
+  return Object.fromEntries(
+    [0, 1, 2].map((dag) => {
+      const datum = new Date(Date.parse(`${datumVoor('vandaag')}T12:00:00Z`) + dag * 86400000);
+      const nat = (h + dag) % 3 === 0;
+      return [datum.toISOString().slice(0, 10), { code: nat ? 61 : 2, t: 17 + ((h + dag * 3) % 8), n: nat ? 2.4 : 0 }];
+    })
+  );
+}
+
 // --- terugblik ------------------------------------------------------------
 // Voor "Wie had gelijk?": wat Open-Meteo achteraf over de afgelopen dagen zegt.
 // Dat is zelf ook een analyse uit de modellen, geen meting van een regenmeter;
