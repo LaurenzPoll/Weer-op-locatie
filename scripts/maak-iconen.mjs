@@ -3,11 +3,12 @@
 //
 //   node scripts/maak-iconen.mjs
 //
-// Het icoon is de bovenkant van de pagina zelf: HEERLEN in de smalle
-// mijnletter op de nevelgrijze grond, en daaronder de lucht-kaart met het
-// zonnetje en de stippenstrip (elke stip één model). Kleuren en maten komen
-// uit styles.css en iconen.js; de tekening staat hieronder één keer
-// beschreven en wordt zowel als PNG gerasterd als als SVG geschreven.
+// Een gewoon weericoon, getekend zoals de pagina zelf: de blauwe lucht van de
+// bovenste kaart met gloed rond de zon, het zonnetje en de wolk uit iconen.js.
+// De kleine twist: elke regendruppel heeft een eigen kleur, zoals elk model zijn
+// eigen bui voorspelt. Er staat geen plaatsnaam in, dus het past bij elke plek.
+// De tekening staat hieronder één keer beschreven en wordt zowel als PNG
+// gerasterd als als SVG geschreven.
 
 import { deflateSync } from 'node:zlib';
 import { writeFileSync } from 'node:fs';
@@ -15,139 +16,109 @@ import { writeFileSync } from 'node:fs';
 // ------------------------------------------------------------------ tekening
 // Alles in een vak van 100 × 100.
 
-const GROND = [0xec, 0xef, 0xf3]; // --plane
-const INKT = [0x10, 0x17, 0x22]; // --text-1
 const WIT = [0xff, 0xff, 0xff];
 const ZON = [0xff, 0xd3, 0x5c]; // --zon op de lucht
-const STIPRAND = [0x0a, 0x14, 0x28]; // de schaduwrand om een stip, op 35 %
+const RAND = [0x0a, 0x14, 0x28]; // een dun donker randje, zodat de druppels loskomen van de lucht
 
-// De lucht bij 'zon': een verloop onder 168°, met gloed uit de hoek rechtsboven.
+// De lucht bij 'zon': een verloop onder 168°, met een warme gloed rond de zon.
 const LUCHT_A = [0x15, 0x4f, 0xae];
 const LUCHT_B = [0x2a, 0x72, 0xc8];
 const GLOED = [0xff, 0xc4, 0x54];
 
-// HEERLEN in Big Shoulders Display ExtraBold (SIL Open Font License), 27
-// hoog met 0,25 letterafstand en de basislijn op 39: de omtrekken zijn eenmalig
-// uit het lettertype gehaald, zodat dit script het lettertype niet nodig heeft.
-const HEERLEN =
-  'M14.41 39L10.91 39L10.91 17.4L14.41 17.4L14.41 26.5L17.39 26.5L17.39 17.4L20.87 17.4L20.87 39L17.39 39' +
-  'L17.39 29.58L14.41 29.58L14.41 39M31.98 39L23.45 39L23.45 17.4L31.98 17.4L31.98 20.48L26.94 20.48L26.94 26.5' +
-  'L31.71 26.5L31.71 29.58L26.94 29.58L26.94 35.92L31.98 35.92L31.98 39M42.53 39L34 39L34 17.4L42.53 17.4' +
-  'L42.53 20.48L37.49 20.48L37.49 26.5L42.26 26.5L42.26 29.58L37.49 29.58L37.49 35.92L42.53 35.92L42.53 39' +
-  'M48.04 39L44.55 39L44.55 17.4L49.28 17.4Q52.01 17.4 53.22 18.52Q54.43 19.64 54.52 22.22L54.52 22.22' +
-  'Q54.55 23.08 54.56 23.78Q54.58 24.47 54.56 25.16Q54.55 25.84 54.52 26.65L54.52 26.65Q54.47 28.29 53.97 29.33' +
-  'Q53.47 30.36 52.4 30.89L52.4 30.89L54.85 39L51.15 39L49.12 31.47L48.04 31.47L48.04 39M48.04 20.48' +
-  'L48.04 28.39L49.27 28.39Q50.15 28.39 50.57 27.99Q51 27.59 51.04 26.82L51.04 26.82Q51.08 26.07 51.09 25.25' +
-  'Q51.11 24.43 51.09 23.62Q51.08 22.8 51.04 22.04L51.04 22.04Q51 21.27 50.57 20.88Q50.15 20.48 49.28 20.48' +
-  'L49.28 20.48L48.04 20.48M65.36 39L56.8 39L56.8 17.4L60.29 17.4L60.29 35.92L65.36 35.92L65.36 39M75.68 39' +
-  'L67.15 39L67.15 17.4L75.68 17.4L75.68 20.48L70.64 20.48L70.64 26.5L75.41 26.5L75.41 29.58L70.64 29.58' +
-  'L70.64 35.92L75.68 35.92L75.68 39M81.07 39L77.7 39L77.7 17.4L82.85 17.4L84.38 24.27L85.94 35.92L86.62 35.92' +
-  'L85.99 26.26L85.7 17.4L89.08 17.4L89.08 39L83.68 39L82.12 31.76L80.91 20.45L80.18 20.45L80.77 30.77L81.07 39';
+const ZON_MIDDEN = { x: 36, y: 30, r: 14 };
 
-// De kaart valt precies onder de letters.
-const KAART = { x: 10.9, y: 45.5, b: 78.2, h: 37, r: 6.5 };
+// De wolk uit iconen.js (een vak van 24), vergroot en naar rechtsonder.
+const WOLK = { x: 3, y: -1, schaal: 3.9 };
 
-// Het zonnetje uit iconen.js (een vak van 24), rechtsboven in de kaart.
-const ZON_VAK = { x: 70.7, y: 47.8, schaal: 0.72 };
-const STRALEN = [
-  [12, 2.4, 12, 5],
-  [12, 19, 12, 21.6],
-  [2.4, 12, 5, 12],
-  [19, 12, 21.6, 12],
-  [5.2, 5.2, 7.1, 7.1],
-  [16.9, 16.9, 18.8, 18.8],
-  [18.8, 5.2, 16.9, 7.1],
-  [7.1, 16.9, 5.2, 18.8]
+// Drie druppels, elk in zijn eigen kleur en op zijn eigen hoogte: regen zoals
+// op de pagina, en de oranje en groene van de andere modelgroepen.
+const DRUPPELS = [
+  { x: 38, y: 74, kleur: [0xb5, 0xd7, 0xff] },
+  { x: 52, y: 79, kleur: [0xf0, 0x8a, 0x5d] },
+  { x: 66, y: 74, kleur: [0x3c, 0xcf, 0x6a] }
 ];
-
-// De stippenstrip: een as, de middelste helft als band, de mediaan als streep,
-// en een stip per model; stippen die elkaar zouden raken gaan een rij omhoog.
-const STRIP = { van: 16.5, tot: 83.5, basis: 77, r: 2.35, rand: 0.55 };
-const STIPPEN = [
-  [0.04, 0],
-  [0.19, 0],
-  [0.33, 0],
-  [0.43, 0],
-  [0.43, 1],
-  [0.53, 0],
-  [0.53, 1],
-  [0.63, 0],
-  [0.77, 0],
-  [0.95, 0]
-];
-const BAND = [0.33, 0.63];
-const MEDIAAN = 0.48;
+const DRUPPEL = { hoog: 8.2, r: 4.4 };
 
 const effen = (kleur, dekking = 1) => ({ kleur, dekking });
 
+// Een druppel: een punt bovenaan, met rechte flanken die raken aan het bolletje.
+function druppelPad(x, y, rand = 0) {
+  const r = DRUPPEL.r + rand;
+  const top = y - rand * 1.6;
+  const cy = y + DRUPPEL.hoog;
+  const afstand = cy - top;
+  const hoek = Math.asin(r / afstand); // tussen de flank en de verticaal
+  const punten = [[x, top]];
+  // Van het rechter raakpunt, onderlangs, naar het linker.
+  const van = -Math.PI / 2 + (Math.PI / 2 - hoek);
+  const tot = (3 * Math.PI) / 2 - (Math.PI / 2 - hoek);
+  for (let i = 0; i <= 32; i++) {
+    const a = van + ((tot - van) * i) / 32;
+    punten.push([x + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return `M${punten.map(([px, py]) => `${px.toFixed(2)} ${py.toFixed(2)}`).join('L')}Z`;
+}
+
 function tekening() {
-  const k = KAART;
   // CSS-verloop onder 168°: de lijn loopt door het midden, zo lang dat de
   // hoeken precies op 0 en 1 vallen.
   const hoek = (168 * Math.PI) / 180;
   const [dx, dy] = [Math.sin(hoek), -Math.cos(hoek)];
-  const lengte = Math.abs(k.b * dx) + Math.abs(k.h * dy);
-  const [mx, my] = [k.x + k.b / 2, k.y + k.h / 2];
+  const lengte = Math.abs(100 * dx) + Math.abs(100 * dy);
   const lucht = {
     lineair: {
-      van: [mx - (dx * lengte) / 2, my - (dy * lengte) / 2],
-      tot: [mx + (dx * lengte) / 2, my + (dy * lengte) / 2]
+      van: [50 - (dx * lengte) / 2, 50 - (dy * lengte) / 2],
+      tot: [50 + (dx * lengte) / 2, 50 + (dy * lengte) / 2]
     },
     stops: [
       [0, LUCHT_A, 1],
       [1, LUCHT_B, 1]
     ]
   };
+  const z = ZON_MIDDEN;
   const gloed = {
-    radiaal: { cx: k.x + k.b, cy: k.y, rx: 1.1 * k.b, ry: 0.7 * k.h },
+    radiaal: { cx: z.x, cy: z.y, rx: 46, ry: 46 },
     stops: [
-      [0, GLOED, 0.55],
-      [0.62, GLOED, 0]
+      [0, GLOED, 0.5],
+      [1, GLOED, 0]
     ]
   };
-
-  const s = STRIP;
-  const x = (t) => s.van + t * (s.tot - s.van);
-  const rij = 2 * s.r + 0.4;
-  const hoog = 2 * rij + 2.2;
-
-  const z = ZON_VAK;
-  const zx = (w) => z.x + w * z.schaal;
-  const zy = (w) => z.y + w * z.schaal;
+  const w = WOLK;
+  const wx = (u) => w.x + u * w.schaal;
+  const wy = (u) => w.y + u * w.schaal;
 
   return [
-    { vorm: 'rect', x: 0, y: 0, b: 100, h: 100, verf: effen(GROND), achtergrond: true },
-    { vorm: 'pad', d: HEERLEN, verf: effen(INKT) },
-    { vorm: 'rect', ...k, verf: lucht },
-    { vorm: 'rect', ...k, verf: gloed },
-    { vorm: 'cirkel', x: zx(12), y: zy(12), r: 4.6 * z.schaal, verf: effen(ZON) },
-    ...STRALEN.map(([x1, y1, x2, y2]) => ({
-      vorm: 'lijn',
-      x1: zx(x1),
-      y1: zy(y1),
-      x2: zx(x2),
-      y2: zy(y2),
-      dikte: 2 * z.schaal,
-      verf: effen(ZON)
-    })),
+    { vorm: 'rect', x: 0, y: 0, b: 100, h: 100, verf: lucht, achtergrond: true },
+    // De gloed vult het hele vak, maar schuift in het maskable icoon mee met de zon.
+    { vorm: 'rect', x: 0, y: 0, b: 100, h: 100, verf: gloed, vult: true },
+    { vorm: 'cirkel', x: z.x, y: z.y, r: z.r, verf: effen(ZON) },
+    ...Array.from({ length: 8 }, (_, k) => {
+      const a = (k * Math.PI) / 4;
+      return {
+        vorm: 'lijn',
+        x1: z.x + Math.cos(a) * (z.r + 5),
+        y1: z.y + Math.sin(a) * (z.r + 5),
+        x2: z.x + Math.cos(a) * (z.r + 10),
+        y2: z.y + Math.sin(a) * (z.r + 10),
+        dikte: 4.2,
+        verf: effen(ZON)
+      };
+    }),
+    { vorm: 'cirkel', x: wx(9.4), y: wy(12.6), r: 3.7 * w.schaal, verf: effen(WIT) },
+    { vorm: 'cirkel', x: wx(14.4), y: wy(11.6), r: 4.5 * w.schaal, verf: effen(WIT) },
     {
       vorm: 'rect',
-      x: x(BAND[0]),
-      y: s.basis - hoog,
-      b: (BAND[1] - BAND[0]) * (s.tot - s.van),
-      h: hoog,
-      r: [s.r, s.r, 0, 0],
-      verf: effen(WIT, 0.15)
+      x: wx(5.7),
+      y: wy(13.4),
+      b: 12.9 * w.schaal,
+      h: 4.9 * w.schaal,
+      r: 2.45 * w.schaal,
+      verf: effen(WIT)
     },
-    { vorm: 'rect', x: s.van, y: s.basis - 0.7, b: s.tot - s.van, h: 1.4, r: 0.7, verf: effen(WIT, 0.28) },
-    { vorm: 'rect', x: x(MEDIAAN) - 0.7, y: s.basis - hoog - 1.5, b: 1.4, h: hoog + 1.5, r: 0.7, verf: effen(WIT) },
-    ...STIPPEN.flatMap(([t, n]) => {
-      const cy = s.basis - 1.4 - s.r - n * rij - s.rand;
-      return [
-        { vorm: 'cirkel', x: x(t), y: cy, r: s.r + s.rand, verf: effen(STIPRAND, 0.35) },
-        { vorm: 'cirkel', x: x(t), y: cy, r: s.r, verf: effen(WIT) }
-      ];
-    })
+    ...DRUPPELS.flatMap((d) => [
+      { vorm: 'pad', d: druppelPad(d.x, d.y, 0.5), verf: effen(RAND, 0.25) },
+      { vorm: 'pad', d: druppelPad(d.x, d.y), verf: effen(d.kleur) }
+    ])
   ];
 }
 
@@ -262,10 +233,11 @@ function raster(maat, inzet = 1) {
   const schaal = m / 100;
   for (const v of tekening()) {
     // De achtergrond vult altijd het hele vak; de rest krimpt naar het midden.
+    const fVorm = v.achtergrond || v.vult ? 1 : inzet;
     const f = v.achtergrond ? 1 : inzet;
-    const naarBeeld = ([x, y]) => [(50 + (x - 50) * f) * schaal, (50 + (y - 50) * f) * schaal];
+    const naarBeeld = ([x, y]) => [(50 + (x - 50) * fVorm) * schaal, (50 + (y - 50) * fVorm) * schaal];
     const randen = [];
-    for (const veelhoek of veelhoeken(v, schaal * f)) {
+    for (const veelhoek of veelhoeken(v, schaal * fVorm)) {
       const p = veelhoek.map(naarBeeld);
       for (let i = 0; i < p.length; i++) randen.push([p[i], p[(i + 1) % p.length]]);
     }
@@ -391,7 +363,7 @@ function svg() {
     return `fill="url(#${id})"`;
   };
   const vormen = tekening().map((v) => {
-    if (v.achtergrond) return `<rect width="100" height="100" rx="22" ${verf(v.verf)}/>`;
+    if (v.achtergrond || v.vult) return `<rect width="100" height="100" rx="22" ${verf(v.verf)}/>`;
     if (v.vorm === 'cirkel') return `<circle cx="${g(v.x)}" cy="${g(v.y)}" r="${g(v.r)}" ${verf(v.verf)}/>`;
     if (v.vorm === 'lijn') {
       const k = v.verf;

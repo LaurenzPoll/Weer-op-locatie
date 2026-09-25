@@ -108,13 +108,13 @@ Dezelfde controle loopt als GitHub Action — handmatig te starten via *Actions 
 
 ## Iconen
 
-Het icoon is de bovenkant van de pagina zelf: HEERLEN in Big Shoulders Display op de nevelgrijze grond, met daaronder de lucht-kaart met het zonnetje en de stippenstrip. De iconen worden gegenereerd, niet met de hand getekend:
+Het icoon is een gewoon weericoon, getekend zoals de pagina: de blauwe lucht van de bovenste kaart, het zonnetje en de wolk uit de app. De twist: elke regendruppel heeft een eigen kleur, zoals elk model zijn eigen bui voorspelt. Er staat geen plaatsnaam in, dus het past bij elke plek. De iconen worden gegenereerd, niet met de hand getekend:
 
 ```bash
 node scripts/maak-iconen.mjs
 ```
 
-Het script heeft het lettertype niet nodig: de omtrekken van de letters staan erin. Het schrijft `apple-touch-icon.png` (180 × 180, voor het beginscherm van de iPhone), `icon-192.png` en `icon-512.png` (voor het manifest), `icon-maskable-512.png` (dezelfde tekening wat kleiner, zodat Android er een cirkel uit kan knippen) en `favicon.svg` voor het browsertabje. De iPhone neemt het icoon over op het moment dat je de app op het beginscherm zet en kijkt daarna niet meer; zie je een oud icoon, haal de app dan van het beginscherm en zet hem er opnieuw op.
+Het schrijft `apple-touch-icon.png` (180 × 180, voor het beginscherm van de iPhone), `icon-192.png` en `icon-512.png` (voor het manifest), `icon-maskable-512.png` (dezelfde tekening wat kleiner, zodat Android er een cirkel uit kan knippen) en `favicon.svg` voor het browsertabje. De iPhone neemt het icoon over op het moment dat je de app op het beginscherm zet en kijkt daarna niet meer; zie je een oud icoon, haal de app dan van het beginscherm en zet hem er opnieuw op.
 
 ## Nieuwe versies
 
