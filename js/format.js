@@ -72,6 +72,11 @@ export function weekdagTijd(iso) {
   return `${DAGEN[d.getDay()]} ${d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`;
 }
 
+/** "07:24" — een tijdstip op de klok van een bepaalde tijdzone. */
+export function klok(datum, tijdzone) {
+  return datum.toLocaleTimeString('nl-NL', { timeZone: tijdzone, hour: '2-digit', minute: '2-digit' });
+}
+
 export function tijdstip(iso) {
   const d = new Date(iso);
   return d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });

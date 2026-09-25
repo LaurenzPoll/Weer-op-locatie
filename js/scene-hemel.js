@@ -3,8 +3,11 @@
 // Koningsdag is. Benaderingen die op een paar graden en een paar uur na
 // kloppen — genoeg voor een pixelhemel.
 
-const BREEDTE = 50.888; // Heerlen
-const LENGTE = 5.979;
+import { LOCATION } from './config.js';
+
+// De stad in de scène is Heerlen, maar de hemel erboven is die van de gekozen plek.
+const BREEDTE = LOCATION.latitude;
+const LENGTE = LOCATION.longitude;
 const RAD = Math.PI / 180;
 
 // Een bekende nieuwe maan (6 januari 2000, 18:14 UTC) en de lengte van een

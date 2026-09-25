@@ -1,16 +1,27 @@
 // Opbouw van de pagina. Haalt de verwachtingen op, rekent de spreiding uit en
 // zet alles op het scherm.
 
-import { DAG, DAGKEUZES, LOCATION, TARGET_DATE, VENSTER, dagenTerug, datumVoor, kiesDag } from './config.js';
+import {
+  CACHE_TTL_MS,
+  DAG,
+  DAGKEUZES,
+  LOCATION,
+  TARGET_DATE,
+  VENSTER,
+  dagenTerug,
+  datumVoor,
+  kiesDag,
+  tijdOpLocatie,
+  uurNu
+} from './config.js';
 import { GROEPEN, MODELLEN, kortNaam } from './models.js';
-import { laadMockHistorie, laadTerugblik, laadVerwachtingen } from './api.js';
+import { laadMockHistorie, laadRegenNu, laadTerugblik, laadVerwachtingen } from './api.js';
 import { mediaan, samenvatting } from './stats.js';
 import { puntenWolk, trendLijn, uurGrafiek, uurRooster } from './charts.js';
 import * as f from './format.js';
 import { weercode, windstreek } from './weercodes.js';
 import { icoon, icoonVoorCode } from './iconen.js';
 import { FIGUREN, MEDAILLES, PIXEL, figuurVoor, pixelSvg, zetPixel } from './pixels.js';
-import { maakScene } from './scene.js';
 import {
   bewaarMeting,
   leesHistorie,
@@ -20,6 +31,9 @@ import {
   verschuiving
 } from './history.js';
 import { NAT_MM, RAAK_GRADEN, beoordeel, ranglijst } from './uitslag.js';
+import { zonOpOnder } from './zon.js';
+import { regenKomend } from './nu.js';
+import { plekParameters, zetPlekkenOp } from './plek.js';
 
 const modellenPerId = Object.fromEntries(MODELLEN.map((m) => [m.id, m]));
 const el = (id) => document.getElementById(id);
@@ -39,16 +53,21 @@ const STATUS_ORDE = { ok: 0, buiten_bereik: 1, geen_dekking: 2, fout: 3 };
 
 function vulKop() {
   el('plaats').textContent = LOCATION.naam;
+  el('balk-titel').textContent = LOCATION.naam;
+  // Een lange plaatsnaam past niet in de grote letter; het langste woord
+  // bepaalt hoeveel kleiner hij moet.
+  const langste = Math.max(...LOCATION.naam.split(/\s+/).map((w) => w.length));
+  el('plaats').style.fontSize = langste > 12 ? `${Math.max(34, Math.floor((58 * 12) / langste))}px` : '';
   el('regio').textContent = LOCATION.regio;
   // Het scheidingsteken komt met de datum mee, zodat er vóór het laden geen los
   // puntje achter de regio staat.
-  el('datum').textContent = ` · ${f.weekdagDatum(TARGET_DATE)}`;
+  el('datum').textContent = `${LOCATION.regio ? ' · ' : ''}${f.weekdagDatum(TARGET_DATE)}`;
   const knoppen = el('dag-knoppen');
   knoppen.style.setProperty('--i', String(DAGKEUZES.indexOf(DAG)));
   knoppen
     .querySelectorAll('button')
     .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dag === DAG)));
-  document.title = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam} — Weer op locatie`;
+  document.title = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam} — Weer`;
 }
 
 function zetStatus(tekst, isFout = false) {
@@ -123,6 +142,24 @@ function koorHtml(v) {
     </div>`;
 }
 
+// Zonsopkomst en -ondergang hangen niet van een model af; die rekenen we uit.
+const ZON_OP = `<svg class="lucht-klein" viewBox="0 0 24 24" aria-hidden="true">
+  <path class="zonvlak" d="M6.5 17a5.5 5.5 0 0 1 11 0z"/><path d="M3 20h18M12 3v6M9 6l3-3 3 3"/></svg>`;
+const ZON_ONDER = `<svg class="lucht-klein" viewBox="0 0 24 24" aria-hidden="true">
+  <path class="zonvlak" d="M6.5 17a5.5 5.5 0 0 1 11 0z"/><path d="M3 20h18M12 3v6M9 6l3 3 3-3"/></svg>`;
+
+function zonHtml() {
+  const z = zonOpOnder(TARGET_DATE, LOCATION.latitude, LOCATION.longitude);
+  const dag = DAG === 'morgen' ? 'morgen' : 'vandaag';
+  if (z.poolnacht) return `<p class="lucht-zon">De zon komt ${dag} niet op</p>`;
+  if (z.middernachtzon) return `<p class="lucht-zon">De zon gaat ${dag} niet onder</p>`;
+  const tz = LOCATION.timezone;
+  return `<p class="lucht-zon">
+      <span>${ZON_OP}<span class="enkel-lezer">Zon op om </span>${esc(f.klok(z.op, tz))}</span>
+      <span>${ZON_ONDER}<span class="enkel-lezer">Zon onder om </span>${esc(f.klok(z.onder, tz))}</span>
+    </p>`;
+}
+
 function consensusHtml(sam, resultaten) {
   if (!sam.oordeel) {
     return `
@@ -164,12 +201,65 @@ function consensusHtml(sam, resultaten) {
       <div><dt>Wind</dt><dd>${esc(f.kmh(sam.wind?.mediaan))}</dd>
         <dd class="bij">${sam.wind ? `tot ${esc(f.kmh(sam.wind.max))}` : ''}</dd></div>
     </dl>
+    <div class="lucht-regels">
+      <p class="lucht-nu" id="lucht-nu" hidden></p>
+      ${zonHtml()}
+    </div>
     <div class="oordeel oordeel-${sam.oordeel.status}">
       <span class="oordeel-icoon" aria-hidden="true">${sam.oordeel.icoon}</span>
       <p><strong>${esc(sam.oordeel.tekst)}</strong> ${esc(sam.oordeel.reden)}.</p>
     </div>
-    <p class="lucht-dekking">${esc(dekking)}.</p>
+    <div class="lucht-voet">
+      <p class="lucht-dekking">${esc(dekking)}.</p>
+      <button type="button" class="lucht-deel" data-actie="delen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M7 11H5.5A1.5 1.5 0 0 0 4 12.5v7A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5H17"/></svg>
+        Delen
+      </button>
+    </div>
     </div>`;
+}
+
+// ---------------------------------------------------------------------- delen
+// Het oordeel als een paar zinnen, voor een appje of een bericht. De link
+// opent dezelfde dag op dezelfde plek.
+
+function deelTekst() {
+  if (!laatsteRender) return null;
+  const sam = samenvatting(laatsteRender.resultaten);
+  if (!sam.oordeel) return null;
+  const beeld = meesteWeerbeeld(laatsteRender.resultaten);
+  const dag = DAG === 'morgen' ? 'Morgen' : 'Vandaag';
+  const regels = [
+    `${dag} in ${LOCATION.naam} (${f.weekdagDatum(TARGET_DATE)}): ${Math.round(sam.temp.mediaan)}° en ` +
+      `${LUCHT_TEKST[beeld.naam].toLowerCase()}, volgens de mediaan van ${sam.temp.aantal} weermodellen.`,
+    `${sam.oordeel.tekst}: ${sam.oordeel.reden}.`
+  ];
+  const komend = komendeRegen();
+  if (komend) regels.push(`${komend.kop}${komend.rest ? `, ${komend.rest}` : ''}.`);
+  return regels.join(' ');
+}
+
+async function deel() {
+  const tekst = deelTekst();
+  if (!tekst) return;
+  const url = new URL(location.href);
+  url.search = '';
+  for (const [k, w] of Object.entries({ dag: DAG, ...plekParameters() })) if (w) url.searchParams.set(k, w);
+  const titel = `${DAG === 'morgen' ? 'Morgen' : 'Vandaag'} in ${LOCATION.naam}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: titel, text: tekst, url: url.href });
+    } catch {
+      // Weggetikt: niets aan de hand.
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(`${tekst}\n${url.href}`);
+    meld('Gekopieerd. Plak het waar je wilt.');
+  } catch {
+    meld('Delen lukt hier niet.');
+  }
 }
 
 // ------------------------------------------------------------------ spreiding
@@ -624,6 +714,9 @@ function tabelHtml(resultaten) {
 
 // --------------------------------------------------------------- uurrooster
 
+// Het uur waarop het rooster voor het laatst de nu-markering kreeg.
+let roosterUur = null;
+
 const VENSTER_UREN = [];
 for (let u = VENSTER.van; u <= VENSTER.tot; u++) VENSTER_UREN.push(u);
 
@@ -871,7 +964,8 @@ function renderRooster(resultaten) {
         overgeslagen.length === 1 ? 'staat' : 'staan'
       } daarom niet in dit rooster.</p>`
     : '';
-  el('rooster-inhoud').innerHTML = uurRooster({ rijen, uren: VENSTER_UREN, meting }) + noot;
+  roosterUur = TARGET_DATE === datumVoor('vandaag') ? uurNu() : null;
+  el('rooster-inhoud').innerHTML = uurRooster({ rijen, uren: VENSTER_UREN, meting, nuUur: roosterUur }) + noot;
 }
 
 // -------------------------------------------------------------------- tekenen
@@ -895,6 +989,7 @@ function render(resultaten, meta) {
   const lucht = el('consensus');
   lucht.dataset.lucht = sam.oordeel ? meesteWeerbeeld(resultaten).naam : 'leeg';
   el('consensus-inhoud').innerHTML = consensusHtml(sam, resultaten);
+  toonRegenNu();
   const legenda = legendaHtml(resultaten);
   el('legenda').innerHTML = legenda.merken;
   el('legenda-uitleg').textContent = legenda.uitleg;
@@ -918,12 +1013,62 @@ function render(resultaten, meta) {
   zetStatus(delen.join(' · '));
 }
 
+// ------------------------------------------------------ regen komend uur
+// Alleen voor vandaag: een zin als "Droog tot 16:15" bovenin de kaart. Een
+// kwartier oud is oud genoeg om opnieuw te vragen.
+
+let regenNu = null;
+let regenNuLaden = null;
+
+function komendeRegen() {
+  if (TARGET_DATE !== datumVoor('vandaag') || !regenNu) return null;
+  return regenKomend(regenNu.kwartieren, tijdOpLocatie());
+}
+
+function toonRegenNu() {
+  const p = el('lucht-nu');
+  if (!p) return;
+  const komend = komendeRegen();
+  p.hidden = !komend;
+  if (!komend) return;
+  // Een volle druppel als het nu regent, een lege als het (nog) droog is.
+  const druppel = `<svg class="lucht-klein" viewBox="0 0 24 24" aria-hidden="true"><path${
+    komend.nat ? ' class="vol"' : ''
+  } d="M12 3.5c3.2 4.2 5.5 7.4 5.5 10.2a5.5 5.5 0 0 1-11 0c0-2.8 2.3-6 5.5-10.2z"/></svg>`;
+  p.innerHTML = `${druppel}<span><strong>${esc(komend.kop)}</strong>${komend.rest ? ` ${esc(komend.rest)}` : ''}</span>`;
+}
+
+function ververRegenNu() {
+  if (regenNuLaden) return regenNuLaden;
+  if (regenNu && Date.now() - regenNu.opgehaaldOp < 15 * 60 * 1000) return Promise.resolve();
+  regenNuLaden = laadRegenNu()
+    .then((kwartieren) => {
+      regenNu = { kwartieren, opgehaaldOp: Date.now() };
+    })
+    .catch(() => {
+      // Geen verbinding: dan zeggen we liever niets dan iets ouds.
+      regenNu = null;
+    })
+    .finally(() => {
+      regenNuLaden = null;
+      toonRegenNu();
+    });
+  return regenNuLaden;
+}
+
+function gegevensVerouderd() {
+  const opgehaald = laatsteRender?.meta?.opgehaaldOp;
+  return !!opgehaald && Date.now() - new Date(opgehaald).getTime() >= CACHE_TTL_MS;
+}
+
 async function laad({ forceer = false } = {}) {
   const beurt = ++laadBeurt;
   const knop = el('verversen');
   knop.disabled = true;
   knop.classList.add('draait');
   zetStatus('verwachtingen ophalen…');
+  if (forceer) regenNu = null;
+  if (TARGET_DATE === datumVoor('vandaag')) ververRegenNu();
   try {
     const { resultaten, perDag, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
     // Een verse ophaal bevat vandaag én morgen; beide gaan de trend in, welke
@@ -1037,15 +1182,6 @@ function meld(tekst) {
   meldingKlok = setTimeout(() => melding.classList.remove('zichtbaar'), 3200);
 }
 
-function laadPixelletter() {
-  if (document.getElementById('pixelletter')) return;
-  const link = document.createElement('link');
-  link.id = 'pixelletter';
-  link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap';
-  document.head.append(link);
-}
-
 // De scène vult de bovenkant van de kaart tot vlak boven de stippenstrip; de
 // strip schuift zoveel omlaag dat de skyline ertussen past.
 function plaatsScene() {
@@ -1072,27 +1208,42 @@ function plaatsScene() {
   scene.speel(true);
 }
 
+// De scène is ruim de helft van alle code; die halen we pas op als iemand de
+// 8-bitmodus aanzet.
+let sceneLaden = null;
+function laadScene() {
+  sceneLaden ??= import('./scene.js')
+    .then(({ maakScene }) => {
+      sceneDoek = document.createElement('canvas');
+      sceneDoek.className = 'lucht-scene';
+      sceneDoek.setAttribute('aria-hidden', 'true');
+      el('consensus').prepend(sceneDoek);
+      scene = maakScene(sceneDoek);
+      plaatsScene();
+    })
+    .catch(() => {
+      // Niet te laden (offline en nog nooit opgehaald): volgende keer opnieuw.
+      sceneLaden = null;
+    });
+  return sceneLaden;
+}
+
 function zet8bit(aan, { melden = true } = {}) {
   if (aan) document.documentElement.dataset.modus = '8bit';
   else delete document.documentElement.dataset.modus;
   zetPixel(aan);
-  if (aan) laadPixelletter();
   try {
     if (aan) localStorage.setItem(MODUS_SLEUTEL, '1');
     else localStorage.removeItem(MODUS_SLEUTEL);
   } catch {
     // Niet kunnen onthouden: dan geldt hij alleen voor dit bezoek.
   }
-  if (aan && !scene) {
-    sceneDoek = document.createElement('canvas');
-    sceneDoek.className = 'lucht-scene';
-    sceneDoek.setAttribute('aria-hidden', 'true');
-    el('consensus').prepend(sceneDoek);
-    scene = maakScene(sceneDoek);
-  }
+  if (aan) laadScene();
   if (laatsteRender) render(laatsteRender.resultaten, laatsteRender.meta);
   else plaatsScene();
-  if (melden) meld(aan ? '8-bit aan. Tik nog eens vijf keer op HEERLEN om terug te gaan.' : '8-bit uit.');
+  if (melden) {
+    meld(aan ? `8-bit aan. Tik nog eens vijf keer op ${LOCATION.naam.toUpperCase()} om terug te gaan.` : '8-bit uit.');
+  }
 }
 
 function zet8bitOp() {
@@ -1153,6 +1304,51 @@ function zetModelLinksOp() {
   });
 }
 
+// ------------------------------------------------------------ nieuwe versie
+// Wie de app opent, krijgt van de service worker altijd de nieuwste versie.
+// Maar een app op het beginscherm van de iPhone begint niet opnieuw als je hem
+// terughaalt; hij gaat verder waar hij was. Daarom vraagt de pagina dan aan de
+// service worker of er intussen iets nieuws staat, en biedt hem onderin aan.
+// Onderaan de pagina kun je ook altijd zelf opnieuw laden.
+
+let nieuweVersie = false;
+
+function controleerVersie() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.controller?.postMessage('controleer');
+  // Ook de service worker zelf kan nieuw zijn; normaal kijkt de browser daar
+  // pas naar bij de volgende keer openen.
+  navigator.serviceWorker
+    .getRegistration()
+    .then((r) => r?.update())
+    .catch(() => {});
+}
+
+function zetVersieOp() {
+  const herlaad = () => location.reload();
+  el('herladen').addEventListener('click', herlaad);
+  el('versie-laden').addEventListener('click', herlaad);
+
+  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return;
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data !== 'nieuwe-versie') return;
+    nieuweVersie = true;
+    el('nieuwe-versie').hidden = false;
+  });
+
+  // Niet bij elk trekje aan het berichtencentrum; eens per minuut is genoeg.
+  let laatst = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || Date.now() - laatst < 60_000) return;
+    laatst = Date.now();
+    controleerVersie();
+  });
+
+  navigator.serviceWorker.register('./sw.js').catch(() => {
+    // Zonder service worker werkt de app gewoon, alleen niet offline.
+  });
+}
+
 // ----------------------------------------------------------------------- start
 
 function start() {
@@ -1160,6 +1356,7 @@ function start() {
   zetTooltipOp();
   zetBalkOp();
   zetModelLinksOp();
+  zetPlekkenOp();
   zet8bitOp();
 
   // Draait de telefoon of verandert het venster van breedte, dan tekenen we de
@@ -1174,7 +1371,15 @@ function start() {
       render(laatsteRender.resultaten, laatsteRender.meta);
     }, 150);
   });
-  el('verversen').addEventListener('click', () => laad({ forceer: true }));
+  el('consensus').addEventListener('click', (e) => {
+    if (e.target.closest('[data-actie="delen"]')) deel();
+  });
+  el('verversen').addEventListener('click', () => {
+    // Staat er een nieuwe versie klaar, dan is opnieuw laden de beste verversing.
+    if (nieuweVersie) return location.reload();
+    laad({ forceer: true });
+    controleerVersie();
+  });
 
   el('rooster-knoppen').addEventListener('click', (e) => {
     const knop = e.target.closest('button[data-meting]');
@@ -1194,19 +1399,22 @@ function start() {
     wisselDag(knop.dataset.dag);
   });
 
-  // Staat de pagina over middernacht open, dan schuift 'vandaag' mee zodra je
-  // er weer naar kijkt.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && datumVoor(DAG) !== TARGET_DATE) wisselDag(DAG);
-  });
+  // Een app op het beginscherm gaat verder waar hij was als je hem terughaalt.
+  // Is 'vandaag' intussen een andere dag, of zijn de gegevens ouder dan een
+  // half uur, dan halen we ze opnieuw op; ook als hij al die tijd openstaat.
+  const bijwerken = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (datumVoor(DAG) !== TARGET_DATE) wisselDag(DAG);
+    else if (gegevensVerouderd()) laad();
+    else if (roosterUur !== null && uurNu() !== roosterUur) renderRooster(laatsteResultaten);
+    if (TARGET_DATE === datumVoor('vandaag')) ververRegenNu();
+    toonRegenNu();
+  };
+  document.addEventListener('visibilitychange', bijwerken);
+  setInterval(bijwerken, 5 * 60 * 1000);
 
   laad();
-
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      // Zonder service worker werkt de app gewoon, alleen niet offline.
-    });
-  }
+  zetVersieOp();
 }
 
 start();

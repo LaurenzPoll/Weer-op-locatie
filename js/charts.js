@@ -279,28 +279,44 @@ export function trendLijn(punten, { breedte = 132, hoogte = 34 } = {}) {
  * kolom. Die kolom kostte op een telefoon precies de ruimte die de avonduren
  * nodig hebben: nu passen alle uren van het venster naast elkaar.
  */
-export function uurRooster({ rijen, uren, meting }) {
+/**
+ * nuUur: op vandaag het uur waarin we nu zitten. Dat uur krijgt een markering
+ * in de kop, en de uren ervoor worden gedimd: daar valt niets meer te plannen.
+ */
+export function uurRooster({ rijen, uren, meting, nuUur = null }) {
   if (!rijen.length) {
     return `<p class="leeg">Nog geen model met uurwaarden voor deze dag. Zodra de eerste modellen de datum halen,
       vult dit rooster zich.</p>`;
   }
 
+  const voorbij = (uur) => nuUur !== null && uur < nuUur;
+  const klas = (uur, ...namen) => {
+    const alle = [...namen, voorbij(uur) ? 'is-voorbij' : ''].filter(Boolean);
+    return alle.length ? ` class="${alle.join(' ')}"` : '';
+  };
+
   const cel = (waarde, model, uur) => {
     const tijd = `${String(uur).padStart(2, '0')}:00`;
     if (waarde === null || waarde === undefined) {
-      return `<td class="cel-geen" title="${esc(`${model} · ${tijd} — geen waarde`)}">
+      return `<td${klas(uur, 'cel-geen')} title="${esc(`${model} · ${tijd} — geen waarde`)}">
         <span class="enkel-lezer">geen waarde</span></td>`;
     }
     const c = meting.cel(waarde);
     const tekst = `${model} · ${tijd} — ${c.omschrijving}`;
     const gedeeld = `data-tip="${esc(tekst)}" title="${esc(tekst)}"`;
     const verborgen = `<span class="enkel-lezer">${esc(c.omschrijving)}</span>`;
-    if (c.soort === 'leeg') return `<td class="cel-nul" ${gedeeld}>${verborgen}</td>`;
-    if (c.soort === 'icoon') return `<td class="cel-icoon" ${gedeeld}>${icoon(c.icoon)}${verborgen}</td>`;
-    return `<td data-stap="${c.stap}" ${gedeeld}>${verborgen}</td>`;
+    if (c.soort === 'leeg') return `<td${klas(uur, 'cel-nul')} ${gedeeld}>${verborgen}</td>`;
+    if (c.soort === 'icoon') return `<td${klas(uur, 'cel-icoon')} ${gedeeld}>${icoon(c.icoon)}${verborgen}</td>`;
+    return `<td${klas(uur)} data-stap="${c.stap}" ${gedeeld}>${verborgen}</td>`;
   };
 
-  const koppen = uren.map((u) => `<th scope="col">${String(u).padStart(2, '0')}</th>`).join('');
+  const koppen = uren
+    .map((u) =>
+      u === nuUur
+        ? `<th scope="col" class="is-nu"><span class="enkel-lezer">nu, </span>${String(u).padStart(2, '0')}</th>`
+        : `<th scope="col"${klas(u)}>${String(u).padStart(2, '0')}</th>`
+    )
+    .join('');
 
   const lijven = rijen
     .map(
@@ -317,7 +333,7 @@ export function uurRooster({ rijen, uren, meting }) {
     ? `<tfoot><tr>
         <th scope="row">${esc(meting.voet.label)}</th>
         ${uren
-          .map((u) => `<td class="rooster-voet">${esc(meting.voet.formatter(meting.voet.waarden[u]))}</td>`)
+          .map((u) => `<td${klas(u, 'rooster-voet')}>${esc(meting.voet.formatter(meting.voet.waarden[u]))}</td>`)
           .join('')}
       </tr></tfoot>`
     : '';

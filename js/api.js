@@ -18,7 +18,8 @@ import {
   TERUGBLIK_TTL_MS,
   UITSLAG_DAGEN,
   dagenTerug,
-  datumVoor
+  datumVoor,
+  tijdOpLocatie
 } from './config.js';
 import { MODELLEN } from './models.js';
 
@@ -298,6 +299,32 @@ export async function laadVerwachtingen({ forceer = false } = {}) {
     }
     throw fout;
   }
+}
+
+// --- regen in het komende uur ----------------------------------------------
+// Eén klein verzoek met neerslag per kwartier (Best Match). Dat verandert snel,
+// dus geen cache: de app vraagt het opnieuw als het ouder is dan een kwartier.
+
+export async function laadRegenNu() {
+  if (mockAan) return mockRegenNu();
+  const p = new URLSearchParams({
+    latitude: String(LOCATION.latitude),
+    longitude: String(LOCATION.longitude),
+    timezone: LOCATION.timezone,
+    minutely_15: 'precipitation',
+    forecast_minutely_15: '12'
+  });
+  const ruw = await haalOp(`${API_BASE}?${p.toString()}`);
+  const m = ruw?.minutely_15 ?? {};
+  return (m.time ?? []).map((tijd, i) => ({ tijd, mm: getal(m.precipitation, i) }));
+}
+
+// In de mockmodus: nog drie kwartier droog, dan een half uur regen.
+function mockRegenNu() {
+  const nu = Date.parse(`${tijdOpLocatie()}:00Z`);
+  const eerste = Math.floor(nu / 900000) * 900000;
+  const mm = [0, 0, 0, 0, 0.2, 0.5, 0.3, 0, 0, 0, 0, 0, 0];
+  return mm.map((w, i) => ({ tijd: new Date(eerste + i * 900000).toISOString().slice(0, 16), mm: w }));
 }
 
 // --- terugblik ------------------------------------------------------------
