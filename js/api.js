@@ -194,6 +194,28 @@ function getal(reeks, i) {
   return reeks[i];
 }
 
+// De uurwaarden van één kalenderdag.
+function urenOp(ruw, datum) {
+  const uren = [];
+  const h = ruw?.hourly ?? {};
+  const uurTijden = h.time ?? [];
+  for (let u = 0; u < uurTijden.length; u++) {
+    if (!uurTijden[u].startsWith(datum)) continue;
+    uren.push({
+      tijd: uurTijden[u],
+      uur: Number(uurTijden[u].slice(11, 13)),
+      temp: getal(h.temperature_2m, u),
+      neerslag: getal(h.precipitation, u),
+      wind: getal(h.wind_speed_10m, u),
+      bewolking: getal(h.cloud_cover, u),
+      // Zonneschijn komt in seconden per uur; minuten leest prettiger.
+      zon: getal(h.sunshine_duration, u) === null ? null : getal(h.sunshine_duration, u) / 60,
+      code: getal(h.weather_code, u)
+    });
+  }
+  return uren;
+}
+
 export function normaliseer(modelId, ruw, datum = TARGET_DATE) {
   const dagen = ruw?.daily?.time ?? [];
   const i = dagen.indexOf(datum);
@@ -223,8 +245,11 @@ export function normaliseer(modelId, ruw, datum = TARGET_DATE) {
 
   // De dag zit niet op de as, of hij zit er wel maar zonder waarden: in beide
   // gevallen reikt dit model nog niet tot de doeldag.
+  // Wel geven we de uren mee die er al zijn: het uurrooster kan die tonen, ook
+  // als het model de hele dag nog niet haalt.
   if (i === -1 || !heeftWaarde(i)) {
-    return { id: modelId, status: 'buiten_bereik', ...bereik };
+    const uren = urenOp(ruw, datum).filter((u) => u.temp !== null || u.neerslag !== null);
+    return { id: modelId, status: 'buiten_bereik', ...bereik, uren };
   }
 
   const dag = {
@@ -241,22 +266,7 @@ export function normaliseer(modelId, ruw, datum = TARGET_DATE) {
     zonuren: getal(d.sunshine_duration, i) === null ? null : getal(d.sunshine_duration, i) / 3600
   };
 
-  const uren = [];
-  const uurTijden = ruw?.hourly?.time ?? [];
-  for (let u = 0; u < uurTijden.length; u++) {
-    if (!uurTijden[u].startsWith(datum)) continue;
-    uren.push({
-      tijd: uurTijden[u],
-      uur: Number(uurTijden[u].slice(11, 13)),
-      temp: getal(ruw.hourly.temperature_2m, u),
-      neerslag: getal(ruw.hourly.precipitation, u),
-      wind: getal(ruw.hourly.wind_speed_10m, u),
-      bewolking: getal(ruw.hourly.cloud_cover, u),
-      // Zonneschijn komt in seconden per uur; minuten leest prettiger.
-      zon: getal(ruw.hourly.sunshine_duration, u) === null ? null : getal(ruw.hourly.sunshine_duration, u) / 60,
-      code: getal(ruw.hourly.weather_code, u)
-    });
-  }
+  const uren = urenOp(ruw, datum);
 
   return { id: modelId, status: 'ok', ...bereik, dag, uren };
 }
@@ -348,7 +358,8 @@ export async function haalAlles({ bijTussenstand } = {}) {
   for (const { wacht, limiet } of HERKANSINGEN) {
     const opnieuw = opnieuwTeProberen();
     if (!opnieuw.length) break;
-    bijTussenstand?.(perDagNu()[TARGET_DATE], opnieuw.length);
+    const tussen = perDagNu();
+    bijTussenstand?.(tussen[TARGET_DATE], opnieuw.length, tussen);
     await pauze(wacht);
     await ronde(opnieuw, limiet);
   }
@@ -367,7 +378,12 @@ export async function haalAlles({ bijTussenstand } = {}) {
 export function oudeVerwachtingen() {
   const cache = leesCache();
   return cache
-    ? { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp, vers: cacheIsVers(cache) }
+    ? {
+        resultaten: cache.perDag[TARGET_DATE],
+        perDag: cache.perDag,
+        opgehaaldOp: cache.opgehaaldOp,
+        vers: cacheIsVers(cache)
+      }
     : null;
 }
 
@@ -379,6 +395,7 @@ export async function laadVerwachtingen({ forceer = false, bijTussenstand } = {}
   if (!forceer && cacheIsVers(cache)) {
     return {
       resultaten: cache.perDag[TARGET_DATE],
+      perDag: cache.perDag,
       opgehaaldOp: cache.opgehaaldOp,
       uitCache: true,
       onvolledig: !!cache.onvolledig
@@ -390,7 +407,13 @@ export async function laadVerwachtingen({ forceer = false, bijTussenstand } = {}
     // Netwerk helemaal onbereikbaar: liever oude data met een eerlijk label dan
     // een lege pagina.
     if (cache) {
-      return { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp, uitCache: true, offline: true };
+      return {
+        resultaten: cache.perDag[TARGET_DATE],
+        perDag: cache.perDag,
+        opgehaaldOp: cache.opgehaaldOp,
+        uitCache: true,
+        offline: true
+      };
     }
     throw fout;
   }

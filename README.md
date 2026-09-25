@@ -25,7 +25,7 @@ Een gewone weerapp geeft je één getal, en verzwijgt hoe zeker dat getal is. Oo
 | Zon op en onder | Uitgerekend voor de plek en de dag, niet opgevraagd |
 | Beste deze week | Wat de drie modellen zeggen die het hier de afgelopen week het best deden bij "Wie had gelijk?" |
 | Oordeel | Zijn de modellen het eens, verdeeld of oneens — met de reden erbij. Met *Delen* stuur je het als tekst met een link door |
-| Uurrooster 11:00–20:00 | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? Alle uren passen naast elkaar op een telefoon, met het dagtotaal onder de modelnaam. Op vandaag is het huidige uur gemarkeerd en zijn de voorbije uren gedimd. Tik op een vakje voor de waarde |
+| Uur voor uur | Modellen tegen uren, met een schakelaar tussen regen, zon en temperatuur: zetten ze de regen op hetzelfde uur of kiest ieder een ander moment? Op vandaag staat het uur van nu vooraan, met een kader om de kolom, en veeg je opzij tot 24 uur vooruit; de modelnamen blijven staan. Op morgen staat de hele dag erin. Waar een nieuwe dag begint staat de dag in de kop, en bij zon zijn de nachturen een maantje in plaats van een wolk. Wisselen tussen regen, zon en temperatuur houdt je plek in de uren vast. Het totaal over die uren staat onder de modelnaam. Tik op een vakje voor de waarde |
 | Spreiding | Elk model één stip op één as, met de mediaan en de middelste helft: cluster of chaos in één blik |
 | Trend | Schoof de verwachting de laatste dagen op? (lokaal bijgehouden) |
 | Wie had gelijk? | Elke dag de verwachting van de dag ervoor naast wat er werkelijk gebeurde: het podium van gisteren, wie er het verst naast zat, en de stand over een week |
@@ -64,7 +64,7 @@ De plek waarmee de app begint en het dagvenster staan in [`js/config.js`](js/con
 
 ```js
 export const STANDAARD_PLEK = { naam: 'Heerlen', latitude: 50.8882, longitude: 5.9795, … };
-export const VENSTER = { van: 11, tot: 20 };   // het dagvenster van het uurrooster
+export const VENSTER = { van: 11, tot: 20 };   // na 20:00 opent de app op morgen
 ```
 
 Draai na het wijzigen van de standaardplek `node scripts/check-models.mjs` om te zien welke regionale modellen hem dekken.

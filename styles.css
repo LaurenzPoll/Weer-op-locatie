@@ -1323,9 +1323,17 @@ svg.trend {
    op een uitzonderlijk smal scherm (of flink ingezoomd) scrolt hij alsnog, en
    dan blijven de namen links staan terwijl de uren eronderdoor schuiven. */
 .rooster-omhulsel {
+  /* De namenkolom en de breedte van één uur. Er passen zoveel uren naast
+     elkaar als de breedte toelaat; de rest veeg je opzij. */
+  --namen: clamp(64px, 24vw - 14px, 116px);
+  --uur: 32px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
+  /* Na het vegen staat er altijd een heel uur vooraan, net naast de namen:
+     voeg, namen, voeg. */
+  scroll-snap-type: x proximity;
+  scroll-padding-left: calc(var(--namen) + 6px);
   /* Gepositioneerd, zodat de screenreader-tekst in de cellen binnen dit
      scrollkader blijft en de pagina zelf niet horizontaal gaat scrollen. */
   position: relative;
@@ -1338,10 +1346,10 @@ svg.trend {
 }
 
 .rooster {
-  --namen: clamp(64px, 24vw - 14px, 116px);
   table-layout: fixed;
-  width: 100%;
-  min-width: 250px;
+  /* Precies de namen plus het aantal uren; smaller dan het paneel mag, breder
+     scrolt. --kolommen zet het script. */
+  width: calc(var(--namen) + var(--kolommen, 25) * (var(--uur) + 3px) + 3px);
   border-collapse: separate;
   /* De tussenruimte is de achtergrondkleur zelf: die scheidt de vakjes. */
   border-spacing: 3px;
@@ -1364,11 +1372,17 @@ svg.trend {
 .rooster tbody th,
 .rooster tfoot th {
   position: sticky;
-  left: 0;
+  /* Op de plek waar ze al staan, na de voeg: dan springen de namen niet een
+     paar pixels opzij zodra je gaat vegen. */
+  left: 3px;
   z-index: 1;
   width: var(--namen);
   background: var(--surface-1);
-  box-shadow: 3px 0 0 var(--surface-1);
+  /* Ook de voegen links en rechts van de namen dekken: daaronder schuiven de
+     uren en het nu-kader door. */
+  box-shadow:
+    -3px 0 0 var(--surface-1),
+    3px 0 0 var(--surface-1);
   text-align: left;
   padding-right: 6px;
   line-height: 1.15;
@@ -1445,17 +1459,55 @@ svg.trend {
 .rooster tbody td[data-tip] {
   cursor: pointer;
 }
-/* Vandaag: het uur waarin we nu zitten krijgt een markering in de kop, en de
-   uren ervoor gaan naar de achtergrond. */
-.rooster thead th.is-nu {
-  color: var(--surface-1);
-  font-weight: 700;
-  background: var(--accent);
-  border-radius: 6px;
-  padding-block: 1px;
+.rooster thead th:not(:first-child) {
+  width: var(--uur);
+  scroll-snap-align: start;
 }
-.rooster .is-voorbij {
-  opacity: 0.4;
+/* Boven het uur: "nu", of de dag waar een nieuwe dag begint. */
+.rooster-dag {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+.rooster thead th.is-nieuwe-dag {
+  color: var(--text-1);
+  font-weight: 600;
+}
+/* Het uur van nu: een kader om de hele kolom, van de kop tot de voet. Het
+   script legt het over de kolom; het schuift mee met de uren en gaat onder de
+   vaste modelnamen door. */
+.rooster thead th.is-nu {
+  color: var(--accent);
+  font-weight: 700;
+}
+.rooster-nu-kader {
+  position: absolute;
+  z-index: 0;
+  border: 2px solid var(--accent);
+  border-radius: 9px;
+  pointer-events: none;
+}
+/* Zijn er rechts nog uren, dan vervaagt de rand: er valt meer te zien. */
+.rooster-omhulsel:not(.is-einde) {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+/* Zon, 's nachts: geen wolk maar een donkerder vakje met een maantje. */
+.rooster tbody td.cel-nacht,
+.legenda-nacht {
+  background: color-mix(in srgb, var(--text-1) 10%, transparent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 4.5a7.5 7.5 0 1 0 4 12.9 6 6 0 1 1-4-12.9z' fill='%238a95a5'/%3E%3C/svg%3E")
+    center / 14px no-repeat;
+}
+.legenda-nacht {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  vertical-align: -4px;
 }
 .rooster tbody td:hover {
   outline: 2px solid var(--text-1);
@@ -1486,6 +1538,11 @@ svg.trend {
   }
   .rooster {
     border-spacing: 2px;
+  }
+  .rooster thead th:first-child,
+  .rooster tbody th,
+  .rooster tfoot th {
+    left: 2px;
   }
   .rooster tbody th a {
     font-size: 12px;
@@ -2441,7 +2498,7 @@ body:has(.versie-melding:not([hidden])) .voet {
 }
 
 /* Vierkante hoeken, zoals op een scherm van toen. */
-[data-modus='8bit'] :is(.lucht-nu, .lucht-deel, .blad, .zoekveld, .plek-hier, .blad-sluit, .rooster thead th.is-nu),
+[data-modus='8bit'] :is(.lucht-nu, .lucht-deel, .blad, .zoekveld, .plek-hier, .blad-sluit, .rooster-nu-kader),
 [data-modus='8bit'] :is(.lucht, .paneel, .lijst, .segment, .segment button, .rondknop, .oordeel, .oordeel-icoon, .chip,
     .merk, .waarden, .rooster tbody td, .legenda-balk span, .tip, .figuur-tegel, .koor-band, .koor-baan i, .stand-reeks i) {
   border-radius: 0;
