@@ -421,6 +421,19 @@ function naarDagen(ruw, verschil = 0) {
   return dagen;
 }
 
+export function bouwTerugblikUrl() {
+  const p = new URLSearchParams({
+    latitude: String(LOCATION.latitude),
+    longitude: String(LOCATION.longitude),
+    timezone: LOCATION.timezone,
+    past_days: String(UITSLAG_DAGEN),
+    forecast_days: '1',
+    daily: 'temperature_2m_max,precipitation_sum',
+    models: 'best_match'
+  });
+  return `${API_BASE}?${p.toString()}`;
+}
+
 function leesTerugblik() {
   try {
     const cache = JSON.parse(localStorage.getItem(TERUGBLIK_KEY));
@@ -443,17 +456,8 @@ export async function laadTerugblik() {
   const vers = cache && Date.now() - new Date(cache.opgehaaldOp).getTime() < TERUGBLIK_TTL_MS;
   if (vers && cache.dagen[dagenTerug(1)]) return cache.dagen;
 
-  const p = new URLSearchParams({
-    latitude: String(LOCATION.latitude),
-    longitude: String(LOCATION.longitude),
-    timezone: LOCATION.timezone,
-    past_days: String(UITSLAG_DAGEN),
-    forecast_days: '1',
-    daily: 'temperature_2m_max,precipitation_sum',
-    models: 'best_match'
-  });
   try {
-    const dagen = naarDagen(await haalOp(`${API_BASE}?${p.toString()}`));
+    const dagen = naarDagen(await haalOp(bouwTerugblikUrl()));
     try {
       localStorage.setItem(
         TERUGBLIK_KEY,

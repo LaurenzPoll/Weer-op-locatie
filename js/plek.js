@@ -102,16 +102,14 @@ const MOCK_PLAATSEN = [
   }
 ];
 
-export async function zoekPlaatsen(tekst, signaal) {
-  if (mockAan) {
-    const t = tekst.toLowerCase();
-    return MOCK_PLAATSEN.filter((p) => p.naam.toLowerCase().includes(t));
-  }
+export function bouwZoekUrl(tekst) {
   const p = new URLSearchParams({ name: tekst, count: '8', language: 'nl', format: 'json' });
-  const res = await fetch(`${GEOCODING}?${p.toString()}`, { signal: signaal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  return (json.results ?? [])
+  return `${GEOCODING}?${p.toString()}`;
+}
+
+/** Van een antwoord van de geocoding naar plekken zoals de app ze bewaart. */
+export function naarPlekken(json) {
+  return (json?.results ?? [])
     .map((r) => ({
       naam: r.name,
       // Een provincie zegt in Nederland genoeg; daarbuiten hoort het land erbij.
@@ -121,6 +119,16 @@ export async function zoekPlaatsen(tekst, signaal) {
       timezone: r.timezone || apparaatTijdzone()
     }))
     .filter(isPlek);
+}
+
+export async function zoekPlaatsen(tekst, signaal) {
+  if (mockAan) {
+    const t = tekst.toLowerCase();
+    return MOCK_PLAATSEN.filter((p) => p.naam.toLowerCase().includes(t));
+  }
+  const res = await fetch(bouwZoekUrl(tekst), { signal: signaal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return naarPlekken(await res.json());
 }
 
 const graden = (w, plus, min) =>
