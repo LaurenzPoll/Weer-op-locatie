@@ -10,7 +10,6 @@ import * as f from './format.js';
 import { weercode, windstreek } from './weercodes.js';
 import { icoon, icoonVoorCode } from './iconen.js';
 import { FIGUREN, MEDAILLES, PIXEL, figuurVoor, pixelSvg, zetPixel } from './pixels.js';
-import { maakScene } from './scene.js';
 import {
   bewaarMeting,
   leesHistorie,
@@ -1037,15 +1036,6 @@ function meld(tekst) {
   meldingKlok = setTimeout(() => melding.classList.remove('zichtbaar'), 3200);
 }
 
-function laadPixelletter() {
-  if (document.getElementById('pixelletter')) return;
-  const link = document.createElement('link');
-  link.id = 'pixelletter';
-  link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap';
-  document.head.append(link);
-}
-
 // De scène vult de bovenkant van de kaart tot vlak boven de stippenstrip; de
 // strip schuift zoveel omlaag dat de skyline ertussen past.
 function plaatsScene() {
@@ -1072,24 +1062,37 @@ function plaatsScene() {
   scene.speel(true);
 }
 
+// De scène is ruim de helft van alle code; die halen we pas op als iemand de
+// 8-bitmodus aanzet.
+let sceneLaden = null;
+function laadScene() {
+  sceneLaden ??= import('./scene.js')
+    .then(({ maakScene }) => {
+      sceneDoek = document.createElement('canvas');
+      sceneDoek.className = 'lucht-scene';
+      sceneDoek.setAttribute('aria-hidden', 'true');
+      el('consensus').prepend(sceneDoek);
+      scene = maakScene(sceneDoek);
+      plaatsScene();
+    })
+    .catch(() => {
+      // Niet te laden (offline en nog nooit opgehaald): volgende keer opnieuw.
+      sceneLaden = null;
+    });
+  return sceneLaden;
+}
+
 function zet8bit(aan, { melden = true } = {}) {
   if (aan) document.documentElement.dataset.modus = '8bit';
   else delete document.documentElement.dataset.modus;
   zetPixel(aan);
-  if (aan) laadPixelletter();
   try {
     if (aan) localStorage.setItem(MODUS_SLEUTEL, '1');
     else localStorage.removeItem(MODUS_SLEUTEL);
   } catch {
     // Niet kunnen onthouden: dan geldt hij alleen voor dit bezoek.
   }
-  if (aan && !scene) {
-    sceneDoek = document.createElement('canvas');
-    sceneDoek.className = 'lucht-scene';
-    sceneDoek.setAttribute('aria-hidden', 'true');
-    el('consensus').prepend(sceneDoek);
-    scene = maakScene(sceneDoek);
-  }
+  if (aan) laadScene();
   if (laatsteRender) render(laatsteRender.resultaten, laatsteRender.meta);
   else plaatsScene();
   if (melden) meld(aan ? '8-bit aan. Tik nog eens vijf keer op HEERLEN om terug te gaan.' : '8-bit uit.');

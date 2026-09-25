@@ -16,6 +16,42 @@
    Big Shoulders Display — een smalle, industriële letter, een knipoog naar het
    mijnverleden van Heerlen — alleen voor de plaatsnaam en de grote getallen. */
 
+/* De letters komen van deze site zelf en niet van Google Fonts: zo gaat er
+   geen verzoek naar een derde partij, en staat HEERLEN ook zonder verbinding
+   in zijn eigen letter. Beide lettertypes vallen onder de SIL Open Font
+   License (zie fonts/). De pixelletter wordt pas geladen als de 8-bitmodus
+   hem gebruikt. */
+@font-face {
+  font-family: 'Big Shoulders Display';
+  font-weight: 600;
+  font-display: swap;
+  src: url(fonts/big-shoulders-display-600.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Big Shoulders Display';
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/big-shoulders-display-700.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Big Shoulders Display';
+  font-weight: 800;
+  font-display: swap;
+  src: url(fonts/big-shoulders-display-800.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/silkscreen-400.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/silkscreen-700.woff2) format('woff2');
+}
+
 :root {
   color-scheme: light;
 

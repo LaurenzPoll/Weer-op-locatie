@@ -50,7 +50,12 @@ const BIJLAGEN = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  './fonts/big-shoulders-display-600.woff2',
+  './fonts/big-shoulders-display-700.woff2',
+  './fonts/big-shoulders-display-800.woff2',
+  './fonts/silkscreen-400.woff2',
+  './fonts/silkscreen-700.woff2'
 ];
 
 const THUIS = new URL('./', self.location).href;
