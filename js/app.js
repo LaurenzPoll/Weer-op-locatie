@@ -4,6 +4,7 @@
 import {
   CACHE_TTL_MS,
   DAG,
+  ONVOLLEDIG_TTL_MS,
   DAGKEUZES,
   LOCATION,
   TARGET_DATE,
@@ -586,7 +587,11 @@ function uitlegStatusHtml(r, m) {
   }
   if (r.status === 'fout') {
     return `<p class="statusuitleg">Open-Meteo gaf geen bruikbaar antwoord voor dit model.
-      Melding: <code>${esc(r.melding ?? 'onbekend')}</code>. Probeer het later opnieuw met Verversen.</p>`;
+      Melding: <code>${esc(r.melding ?? 'onbekend')}</code>. ${
+        r.tijdelijk
+          ? 'De app heeft het drie keer geprobeerd en probeert het over een paar minuten vanzelf opnieuw.'
+          : 'Probeer het later opnieuw met Verversen.'
+      }</p>`;
   }
   return '';
 }
@@ -1047,8 +1052,10 @@ function render(resultaten, meta) {
   plaatsScene();
 
   const delen = [`bijgewerkt ${f.datumTijd(meta.opgehaaldOp)}`];
-  if (meta.bijwerken) delen.push('nieuwe gegevens ophalen…');
+  if (meta.opnieuw) delen.push(`${meta.opnieuw} ${meta.opnieuw === 1 ? 'model' : 'modellen'} opnieuw proberen…`);
+  else if (meta.bijwerken) delen.push('nieuwe gegevens ophalen…');
   else if (meta.offline) delen.push('geen verbinding — laatst bekende gegevens');
+  else if (meta.onvolledig) delen.push('niet alle modellen bereikt, straks opnieuw');
   else if (meta.uitCache) delen.push('uit lokale cache');
   zetStatus(delen.join(' · '));
 }
@@ -1101,7 +1108,9 @@ let bezig = false;
 
 function gegevensVerouderd() {
   const opgehaald = laatsteRender?.meta?.opgehaaldOp;
-  return !bezig && !!opgehaald && Date.now() - new Date(opgehaald).getTime() >= CACHE_TTL_MS;
+  // Ontbrak er de vorige keer een model, dan is de ophaal sneller oud.
+  const houdbaar = laatsteRender?.meta?.onvolledig ? ONVOLLEDIG_TTL_MS : CACHE_TTL_MS;
+  return !bezig && !!opgehaald && Date.now() - new Date(opgehaald).getTime() >= houdbaar;
 }
 
 async function laad({ forceer = false } = {}) {
@@ -1117,16 +1126,25 @@ async function laad({ forceer = false } = {}) {
   // vorige keer bewaard is, ook als het ouder is dan een half uur: liever iets
   // te zien terwijl de 22 modellen antwoorden dan een lege kaart.
   const oud = !forceer && getoondVoor !== TARGET_DATE ? oudeVerwachtingen() : null;
-  if (oud && Date.now() - new Date(oud.opgehaaldOp).getTime() >= CACHE_TTL_MS) {
+  if (oud && !oud.vers) {
     render(oud.resultaten, { opgehaaldOp: oud.opgehaaldOp, uitCache: true, bijwerken: true, historie: leesHistorie() });
   }
   try {
-    const { resultaten, perDag, opgehaaldOp, uitCache, offline } = await laadVerwachtingen({ forceer });
+    // Moeten er modellen opnieuw geprobeerd worden, dan staat wat er al is
+    // alvast op het scherm.
+    const bijTussenstand = (tussen, opnieuw) => {
+      if (beurt !== laadBeurt) return;
+      render(tussen, { opgehaaldOp: new Date().toISOString(), opnieuw, historie: leesHistorie() });
+    };
+    const { resultaten, perDag, opgehaaldOp, uitCache, offline, onvolledig } = await laadVerwachtingen({
+      forceer,
+      bijTussenstand
+    });
     // Een verse ophaal bevat vandaag én morgen; beide gaan de trend in, welke
     // dag je ook bekijkt.
     if (!uitCache) Object.entries(perDag).forEach(([datum, res]) => bewaarMeting(res, datum));
     if (beurt !== laadBeurt) return;
-    render(resultaten, { opgehaaldOp, uitCache, offline, historie: leesHistorie() });
+    render(resultaten, { opgehaaldOp, uitCache, offline, onvolledig, historie: leesHistorie() });
     // Na een verse ophaal kan er een nieuwe voorbije dag te beoordelen zijn.
     if (forceer || !uitslagGeladen) laadUitslag();
   } catch (fout) {
