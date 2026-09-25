@@ -187,21 +187,6 @@ export const MODELLEN = [
       'Het Japanse globale model. Met 55 km is hij grof — verwacht geen enkel detail over Heerlen — maar hij is volledig zelfstandig ontwikkeld en getuned op een heel ander klimaat. Precies daarom is hij bruikbaar: ziet een grof, ver van hier gebouwd model hetzelfde patroon, dan zit dat patroon er echt.'
   },
   {
-    id: 'kma_gdps',
-    naam: 'KMA GDPS',
-    aanbieder: 'Korea Meteorological Administration',
-    land: 'Zuid-Korea',
-    vlag: '🇰🇷',
-    resolutie: '13 km',
-    horizon: 12,
-    update: 'elke 6 uur',
-    dekking: 'wereldwijd, maar via Open-Meteo komen er voor deze locatie geen waarden terug',
-    groep: 'globaal',
-    dekkingOnzeker: true,
-    waarom:
-      'Zuid-Korea draait een eigen variant van het Britse Unified Model, met eigen data-assimilatie. Familie van UKMO dus, en dat is juist het nut: staan die twee samen tegenover ECMWF, dan wijkt er één modelfamilie af en niet twee losse meningen. In de praktijk levert hij via Open-Meteo op deze plek echter geen enkele waarde, dus hij blijft hier voorlopig leeg.'
-  },
-  {
     id: 'cma_grapes_global',
     naam: 'CMA GRAPES Global',
     aanbieder: 'China Meteorological Administration',
@@ -214,21 +199,6 @@ export const MODELLEN = [
     groep: 'globaal',
     waarom:
       'Het Chinese globale model, volledig eigen ontwikkeling. Voor Europa hoort hij niet bij de topmodellen, maar hij is een echte buitenstaander in dit gezelschap. Het helpt om te weten of de uitschieter in de spreiding een Chinese of een Amerikaanse is.'
-  },
-  {
-    id: 'bom_access_global',
-    naam: 'BOM ACCESS-G',
-    aanbieder: 'Bureau of Meteorology',
-    land: 'Australië',
-    vlag: '🇦🇺',
-    resolutie: '15 km',
-    horizon: 10,
-    update: 'elke 6 uur',
-    dekking: 'wereldwijd, maar via Open-Meteo komen er voor deze locatie geen waarden terug',
-    groep: 'globaal',
-    dekkingOnzeker: true,
-    waarom:
-      'Het Australische globale model, ook uit de Unified Model-familie. Ver van huis en niet op Europa geoptimaliseerd; hij staat er voor de volledigheid van "alle modellen". Net als het Koreaanse model geeft hij via Open-Meteo voor deze plek geen waarden terug, dus verwacht hier geen cijfers van hem.'
   },
 
   // -------------------------------------------------------------- regionaal
@@ -387,9 +357,7 @@ const KORT = {
   ukmo_global_deterministic_10km: 'UKMO',
   cmc_gem_gdps: 'GEM',
   jma_gsm: 'JMA GSM',
-  kma_gdps: 'KMA',
   cma_grapes_global: 'GRAPES',
-  bom_access_global: 'ACCESS',
   dwd_icon_eu: 'ICON-EU',
   dwd_icon_d2: 'ICON-D2',
   knmi_harmonie_arome_netherlands: 'KNMI NL',

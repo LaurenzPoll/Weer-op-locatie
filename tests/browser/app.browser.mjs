@@ -189,8 +189,8 @@ test('de 8-bitscène wordt pas geladen als je hem aanzet', async () => {
 });
 
 // Het echte pad, zonder mockmodus: de verzoeken naar Open-Meteo beantwoorden
-// we hier zelf met de fixture, en één model antwoordt nooit.
-test('tegen de API: drie dagen per model, en een traag model houdt de pagina niet op', async () => {
+// we hier zelf met de fixture. Eén model antwoordt de eerste keer niet.
+test('tegen de API: zes tegelijk, drie dagen, en een traag model komt bij de herkansing alsnog binnen', async () => {
   const fixture = JSON.parse(readFileSync(new URL('../../dev/fixture.json', import.meta.url), 'utf8'));
   const vandaag = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date());
   const verschil = Math.round(
@@ -208,14 +208,19 @@ test('tegen de API: drie dagen per model, en een traag model houdt de pagina nie
     hourly: { ...e.hourly, time: schuif(e.hourly.time) }
   });
   const TRAAG = 'jma_gsm';
+  // Dit model kent een gevraagde variabele niet: een vaste fout, elke keer.
+  const VAST = 'cma_grapes_global';
   const dagenGevraagd = new Set();
+  const pogingen = {};
+  let tegelijk = 0;
+  let hoogste = 0;
 
   const { context, page } = await telefoon();
   try {
     await context.route('https://api.open-meteo.com/**', async (route) => {
       const q = new URL(route.request().url()).searchParams;
       const json = (body, status = 200) =>
-        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) }).catch(() => {});
       if (q.has('minutely_15')) return json({ minutely_15: { time: [], precipitation: [] } });
       if (q.has('past_days')) {
         const t = fixture.__terugblik;
@@ -224,21 +229,36 @@ test('tegen de API: drie dagen per model, en een traag model houdt de pagina nie
       const model = q.get('models');
       if (!model) return json({ daily: {} });
       dagenGevraagd.add(q.get('forecast_days'));
-      if (model === TRAAG) return; // nooit een antwoord
+      pogingen[model] = (pogingen[model] ?? 0) + 1;
+      if (model === TRAAG && pogingen[model] === 1) return; // de eerste keer nooit een antwoord
+      if (model === VAST) return json({ error: true, reason: 'Cannot initialize WeatherVariableDaily' }, 400);
+      tegelijk++;
+      hoogste = Math.max(hoogste, tegelijk);
+      await new Promise((klaar) => setTimeout(klaar, 250));
+      tegelijk--;
       const e = fixture[model];
       if (e.__fout) return json({ error: true, reason: e.__fout }, 400);
       return json(verschoven(e));
     });
     const begin = Date.now();
     await page.goto(server.url);
+    // De tussenstand: alles behalve het trage model, terwijl dat opnieuw wordt geprobeerd.
     await wachtOpKaart(page);
-    const duur = Date.now() - begin;
-    assert.ok(duur >= 9000 && duur < 14000, `de kaart wacht niet langer dan de tijdslimiet (${duur} ms)`);
+    const tussen = Date.now() - begin;
+    assert.ok(tussen >= 11000 && tussen < 18000, `tussenstand na de tijdslimiet (${tussen} ms)`);
+    assert.match(await page.textContent('#ophaalstatus'), /1 model opnieuw proberen/);
+    assert.match(await page.locator(`#model-${TRAAG}`).innerText(), /mislukt/);
+    // Daarna komt het trage model alsnog binnen.
+    await page.waitForFunction((id) => !document.querySelector(`#model-${id}`).innerText.includes('mislukt'), TRAAG, {
+      timeout: 10000
+    });
+    assert.doesNotMatch(await page.textContent('#ophaalstatus'), /opnieuw|niet alle/);
+    assert.equal(pogingen[TRAAG], 2);
+    assert.ok(hoogste <= 6, `nooit meer dan zes tegelijk (${hoogste})`);
     assert.deepEqual([...dagenGevraagd], ['3'], 'drie dagen per model');
-    const traag = page.locator(`#model-${TRAAG}`);
-    assert.match(await traag.innerText(), /mislukt/);
-    assert.match(await traag.locator('.model-inhoud').innerHTML(), /geen antwoord binnen 10 seconden/);
-    assert.match(await page.textContent('#consensus'), /mediaan van \d+ modellen/i);
+    // Een model met een vaste fout wordt niet herhaald.
+    assert.equal(pogingen[VAST], 2, 'één keer alles, één keer de kernvariabelen');
+    assert.match(await page.locator(`#model-${VAST}`).innerText(), /mislukt/);
   } finally {
     await context.close();
   }

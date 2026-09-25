@@ -52,7 +52,7 @@ Tik vijf keer op de plaatsnaam (**HEERLEN**), of toets de Konami-code (↑ ↑ �
 
 De dag rekent de app zelf uit, in de tijdzone van de plek (voor Heerlen Europe/Amsterdam) en niet in die van je apparaat. Standaard opent hij op **vandaag**; is het dagvenster van vandaag al voorbij (na 20:00), dan op **morgen**. Met `?dag=vandaag` of `?dag=morgen` in de URL kies je zelf.
 
-Eén ophaal bij Open-Meteo levert beide dagen, dus wisselen is direct en kost geen nieuw verzoek. Per model vraagt de app drie dagen op, genoeg voor vandaag en morgen; elk verzoek krijgt tien seconden, zodat één traag model de pagina niet ophoudt. Zijn de bewaarde gegevens ouder dan een half uur, dan staan ze bij het openen toch meteen op het scherm, met "nieuwe gegevens ophalen…", tot de nieuwe binnen zijn. Laat je de pagina over middernacht openstaan, dan schuift "vandaag" mee zodra je er weer naar kijkt. Haal je de app terug en zijn de gegevens ouder dan een half uur, dan haalt hij ze vanzelf opnieuw op.
+Eén ophaal bij Open-Meteo levert beide dagen, dus wisselen is direct en kost geen nieuw verzoek. Per model vraagt de app drie dagen op, genoeg voor vandaag en morgen. Hij vraagt zes modellen tegelijk op (een browser opent toch maar een handvol verbindingen naar dezelfde server), en elk verzoek krijgt twaalf seconden vanaf het moment dat het echt vertrekt. Antwoordt een model niet, of is er even geen verbinding of drukte bij Open-Meteo, dan probeert de app het nog twee keer, met twintig en dertig seconden de tijd; intussen staat wat er al binnen is op het scherm, met "1 model opnieuw proberen…". Ontbreekt er daarna nog iets, dan zegt de statusregel dat, en probeert de app het na twee minuten opnieuw in plaats van na een half uur. Een model dat een vaste fout geeft (bijvoorbeeld een variabele niet kent), wordt niet herhaald. Zijn de bewaarde gegevens ouder dan een half uur, dan staan ze bij het openen toch meteen op het scherm, met "nieuwe gegevens ophalen…", tot de nieuwe binnen zijn. Laat je de pagina over middernacht openstaan, dan schuift "vandaag" mee zodra je er weer naar kijkt. Haal je de app terug en zijn de gegevens ouder dan een half uur, dan haalt hij ze vanzelf opnieuw op.
 
 ## Een andere plek
 
@@ -85,7 +85,7 @@ node dev/maak-fixture.mjs          # eenmalig, schrijft dev/fixture.json
 # open http://localhost:8000/?mock=1
 ```
 
-De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. Hij bevat bewust alle vier de statussen, inclusief een model dat een fout teruggeeft; "reikt niet zo ver" zie je op morgen. Er zit ook een week aan verwachtingen en terugblik in, zodat "Wie had gelijk?" meteen iets te tonen heeft; die week komt alleen uit de fixture en belandt nooit in de echte historie. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
+De fixture lijkt op een echte dag: net als in het echt hebben bijna alle modellen een verwachting voor vandaag en morgen, en elk model zet zijn bui op een eigen uur. "Reikt niet zo ver" zie je op morgen; een model zonder dekking of met een fout komt in de browsertests aan bod. Er zit ook een week aan verwachtingen en terugblik in, zodat "Wie had gelijk?" meteen iets te tonen heeft; die week komt alleen uit de fixture en belandt nooit in de echte historie. De app schuift de datums in de fixture zo op dat de doeldag op vandaag valt, dus de schakelaar werkt ook in de mockmodus.
 
 ## Tests
 
@@ -140,7 +140,7 @@ De app is een statische site en staat op GitHub Pages. Instellen: *Settings → 
 
 ## Bronnen en licentie
 
-Weerdata van [Open-Meteo](https://open-meteo.com/), gebruikt onder [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). De modellen komen van ECMWF, KNMI, DWD, NOAA/NCEP, Météo-France, UK Met Office, DMI, CHMI, CMC, JMA, KMA, CMA en BOM.
+Weerdata van [Open-Meteo](https://open-meteo.com/), gebruikt onder [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). De modellen komen van ECMWF, KNMI, DWD, NOAA/NCEP, Météo-France, UK Met Office, DMI, CHMI, CMC, JMA en CMA.
 
 De lettertypes Big Shoulders Display en Silkscreen staan in [`fonts/`](fonts/) en vallen onder de SIL Open Font License; de licentieteksten staan ernaast.
 

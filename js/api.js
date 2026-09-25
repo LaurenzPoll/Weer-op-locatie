@@ -12,7 +12,10 @@ import {
   CACHE_TTL_MS,
   DAGKEUZES,
   FORECAST_DAYS,
+  GELIJKTIJDIG,
+  HERKANSINGEN,
   LOCATION,
+  ONVOLLEDIG_TTL_MS,
   TARGET_DATE,
   TERUGBLIK_KEY,
   TERUGBLIK_TTL_MS,
@@ -100,7 +103,9 @@ function verschuifDatum(iso, dagen) {
 }
 
 function mockVerschil(fixture) {
-  return Math.round((new Date(`${datumVoor('vandaag')}T12:00:00Z`) - new Date(`${fixture.__doel}T12:00:00Z`)) / 86400000);
+  return Math.round(
+    (new Date(`${datumVoor('vandaag')}T12:00:00Z`) - new Date(`${fixture.__doel}T12:00:00Z`)) / 86400000
+  );
 }
 
 async function haalMock(modelId) {
@@ -117,53 +122,72 @@ async function haalMock(modelId) {
   };
 }
 
-// Een fetch die na TIJDSLIMIET_MS opgeeft, met een melding die je begrijpt.
-async function haalMetLimiet(url) {
+// Een fout die de volgende keer anders kan uitpakken: geen antwoord, geen
+// verbinding, of Open-Meteo die het even te druk heeft. Een model dat een
+// variabele niet kent, geeft elke keer dezelfde fout; dat is niet tijdelijk.
+function tijdelijk(melding) {
+  const fout = new Error(melding);
+  fout.tijdelijk = true;
+  return fout;
+}
+
+// Een fetch die na `limiet` milliseconden opgeeft, met een melding die je begrijpt.
+async function haalMetLimiet(url, limiet) {
   const stop = new AbortController();
-  const klok = setTimeout(() => stop.abort(), TIJDSLIMIET_MS);
+  const klok = setTimeout(() => stop.abort(), limiet);
   try {
     return await fetch(url, { signal: stop.signal });
   } catch (fout) {
-    if (stop.signal.aborted) {
-      const traag = new Error(`geen antwoord binnen ${TIJDSLIMIET_MS / 1000} seconden`);
-      traag.traag = true;
-      throw traag;
-    }
-    throw fout;
+    if (stop.signal.aborted) throw tijdelijk(`geen antwoord binnen ${limiet / 1000} seconden`);
+    throw tijdelijk(`geen verbinding (${fout.message})`);
   } finally {
     clearTimeout(klok);
   }
 }
 
-async function haalOp(url) {
-  const res = await haalMetLimiet(url);
+async function haalOp(url, limiet = 20 * 1000) {
+  const res = await haalMetLimiet(url, limiet);
+  // Te druk (429) of een storing aan hun kant (5xx): later nog eens.
+  if (res.status === 429 || res.status >= 500)
+    throw tijdelijk(`Open-Meteo is even niet bereikbaar (HTTP ${res.status})`);
   let json = null;
   try {
     json = await res.json();
   } catch {
-    throw new Error(`onleesbaar antwoord (HTTP ${res.status})`);
+    throw tijdelijk(`onleesbaar antwoord (HTTP ${res.status})`);
   }
   if (json && json.error) throw new Error(json.reason || 'onbekende API-fout');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return json;
 }
 
-async function haalModel(modelId) {
+async function haalModel(modelId, limiet) {
   if (mockAan) return haalMock(modelId);
   try {
-    return await haalOp(bouwUrl(modelId));
+    return await haalOp(bouwUrl(modelId), limiet);
   } catch (fout) {
-    // Te traag: niet nog eens tien seconden wachten op een tweede poging.
-    if (fout.traag) throw fout;
+    // Geen antwoord of geen verbinding: dat lost een kleiner verzoek niet op.
+    if (fout.tijdelijk) throw fout;
     // Tweede kans met alleen de kernvariabelen: waarschijnlijk kent dit model
     // één van de extra variabelen niet.
     try {
-      return await haalOp(bouwUrl(modelId, { kern: true }));
-    } catch {
-      throw fout;
+      return await haalOp(bouwUrl(modelId, { kern: true }), limiet);
+    } catch (tweede) {
+      throw tweede.tijdelijk ? tweede : fout;
     }
   }
 }
+
+/** Voert taken uit met hoogstens `n` tegelijk; de volgende start zodra er een klaar is. */
+export async function metPool(taken, n) {
+  let volgende = 0;
+  const werker = async () => {
+    while (volgende < taken.length) await taken[volgende++]();
+  };
+  await Promise.all(Array.from({ length: Math.min(n, taken.length) }, werker));
+}
+
+const pauze = (ms) => new Promise((klaar) => setTimeout(klaar, ms));
 
 function getal(reeks, i) {
   if (!reeks || reeks[i] === undefined || reeks[i] === null) return null;
@@ -254,13 +278,14 @@ function leesCache() {
   }
 }
 
-function schrijfCache(perDag, opgehaaldOp) {
+function schrijfCache(perDag, opgehaaldOp, onvolledig) {
   try {
     localStorage.setItem(
       CACHE_KEY,
       JSON.stringify({
         locatie: `${LOCATION.latitude},${LOCATION.longitude}`,
         opgehaaldOp,
+        onvolledig,
         perDag
       })
     );
@@ -270,36 +295,69 @@ function schrijfCache(perDag, opgehaaldOp) {
 }
 
 export function cacheIsVers(cache) {
-  return !!cache && Date.now() - new Date(cache.opgehaaldOp).getTime() < CACHE_TTL_MS;
+  const houdbaar = cache?.onvolledig ? ONVOLLEDIG_TTL_MS : CACHE_TTL_MS;
+  return !!cache && Date.now() - new Date(cache.opgehaaldOp).getTime() < houdbaar;
 }
 
 /**
- * Haalt alle modellen op (parallel) en levert per dag (vandaag en morgen) een
- * lijst genormaliseerde resultaten, in de volgorde van de catalogus.
+ * Haalt alle modellen op, zes tegelijk, en levert per dag (vandaag en morgen)
+ * een lijst genormaliseerde resultaten, in de volgorde van de catalogus.
+ * Modellen met een tijdelijke fout krijgen nog twee kansen met meer tijd; wie
+ * dat wil, krijgt vóór elke herkansing de tussenstand via `bijTussenstand`.
  */
-export async function haalAlles() {
-  const uitkomsten = await Promise.allSettled(MODELLEN.map((m) => haalModel(m.id)));
+export async function haalAlles({ bijTussenstand } = {}) {
+  const uitkomsten = new Array(MODELLEN.length);
+  const ronde = (indices, limiet) =>
+    metPool(
+      indices.map((i) => async () => {
+        try {
+          uitkomsten[i] = { ruw: await haalModel(MODELLEN[i].id, limiet) };
+        } catch (fout) {
+          uitkomsten[i] = { fout };
+        }
+      }),
+      GELIJKTIJDIG
+    );
 
   const verwerk = (datum) =>
     uitkomsten.map((uitkomst, idx) => {
       const id = MODELLEN[idx].id;
-      if (uitkomst.status === 'fulfilled') {
+      if (uitkomst.ruw) {
         try {
-          return normaliseer(id, uitkomst.value, datum);
+          return normaliseer(id, uitkomst.ruw, datum);
         } catch (fout) {
           return { id, status: 'fout', melding: `antwoord onverwerkbaar: ${fout.message}` };
         }
       }
-      return { id, status: 'fout', melding: uitkomst.reason?.message ?? 'ophalen mislukt' };
+      return {
+        id,
+        status: 'fout',
+        melding: uitkomst.fout?.message ?? 'ophalen mislukt',
+        tijdelijk: !!uitkomst.fout?.tijdelijk
+      };
     });
-
   // De gekozen dag hoort er altijd bij, ook als middernacht net gepasseerd is.
-  const datums = new Set([...DAGKEUZES.map((k) => datumVoor(k)), TARGET_DATE]);
-  const perDag = Object.fromEntries([...datums].map((d) => [d, verwerk(d)]));
+  const datums = [...new Set([...DAGKEUZES.map((k) => datumVoor(k)), TARGET_DATE])];
+  const perDagNu = () => Object.fromEntries(datums.map((d) => [d, verwerk(d)]));
+  const opnieuwTeProberen = () => MODELLEN.map((_, i) => i).filter((i) => uitkomsten[i].fout?.tijdelijk);
 
+  await ronde(
+    MODELLEN.map((_, i) => i),
+    TIJDSLIMIET_MS
+  );
+  for (const { wacht, limiet } of HERKANSINGEN) {
+    const opnieuw = opnieuwTeProberen();
+    if (!opnieuw.length) break;
+    bijTussenstand?.(perDagNu()[TARGET_DATE], opnieuw.length);
+    await pauze(wacht);
+    await ronde(opnieuw, limiet);
+  }
+
+  const perDag = perDagNu();
+  const onvolledig = opnieuwTeProberen().length > 0;
   const opgehaaldOp = new Date().toISOString();
-  schrijfCache(perDag, opgehaaldOp);
-  return { resultaten: perDag[TARGET_DATE], perDag, opgehaaldOp, uitCache: false };
+  schrijfCache(perDag, opgehaaldOp, onvolledig);
+  return { resultaten: perDag[TARGET_DATE], perDag, opgehaaldOp, uitCache: false, onvolledig };
 }
 
 /**
@@ -308,19 +366,26 @@ export async function haalAlles() {
  */
 export function oudeVerwachtingen() {
   const cache = leesCache();
-  return cache ? { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp } : null;
+  return cache
+    ? { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp, vers: cacheIsVers(cache) }
+    : null;
 }
 
 /**
  * Levert de verwachtingen, uit de cache als die nog vers is.
  */
-export async function laadVerwachtingen({ forceer = false } = {}) {
+export async function laadVerwachtingen({ forceer = false, bijTussenstand } = {}) {
   const cache = leesCache();
   if (!forceer && cacheIsVers(cache)) {
-    return { resultaten: cache.perDag[TARGET_DATE], opgehaaldOp: cache.opgehaaldOp, uitCache: true };
+    return {
+      resultaten: cache.perDag[TARGET_DATE],
+      opgehaaldOp: cache.opgehaaldOp,
+      uitCache: true,
+      onvolledig: !!cache.onvolledig
+    };
   }
   try {
-    return await haalAlles();
+    return await haalAlles({ bijTussenstand });
   } catch (fout) {
     // Netwerk helemaal onbereikbaar: liever oude data met een eerlijk label dan
     // een lege pagina.

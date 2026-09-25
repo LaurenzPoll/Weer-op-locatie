@@ -150,9 +150,26 @@ export const CACHE_TTL_MS = 30 * 60 * 1000;
 // horizon een harde fout, terwijl ze op forecast_days simpelweg korter antwoorden.
 export const FORECAST_DAYS = 3;
 
-// Zo lang wachten we op één antwoord van Open-Meteo. Eén traag model mag de
-// hele pagina niet ophouden; het krijgt dan de status "ophalen mislukt".
-export const TIJDSLIMIET_MS = 10 * 1000;
+// Zo lang wachten we op één antwoord van Open-Meteo, gerekend vanaf het moment
+// dat het verzoek echt vertrekt. Eén traag model mag de pagina niet ophouden.
+export const TIJDSLIMIET_MS = 12 * 1000;
+
+// Zoveel modellen tegelijk. Een browser opent maar een handvol verbindingen
+// naar dezelfde server; de rest wacht in de rij. Die rij houden we zelf bij,
+// zodat de tijdslimiet pas loopt als een verzoek echt vertrekt.
+export const GELIJKTIJDIG = 6;
+
+// Wie niet antwoordt of een tijdelijke fout geeft (geen verbinding, druk bij
+// Open-Meteo), krijgt nog twee kansen: eerst na anderhalve seconde met twintig
+// seconden de tijd, daarna na vier seconden met dertig.
+export const HERKANSINGEN = [
+  { wacht: 1500, limiet: 20 * 1000 },
+  { wacht: 4000, limiet: 30 * 1000 }
+];
+
+// Mist er dan nog steeds een model, dan geldt de ophaal maar zo kort als vers:
+// de volgende keer openen of terughalen probeert de app het opnieuw.
+export const ONVOLLEDIG_TTL_MS = 2 * 60 * 1000;
 
 // localStorage-sleutels. Verhoog het versienummer als de opslagvorm verandert.
 // Elke plek heeft zijn eigen cache, trend en "Wie had gelijk?"; de standaardplek
